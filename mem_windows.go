@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func makeWritable(ptr unsafe.Pointer, size int) error {
+func makeMemWritable(ptr unsafe.Pointer, size int) error {
 	var oldPerms uint32
 	return windows.VirtualProtect(
 		uintptr(ptr),
