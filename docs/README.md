@@ -1,6 +1,9 @@
 # testaroli
 
-Package `testaroli` allows to override functions and methods with stubs/mocks to simplify unit testesting.
+[![Go Reference](https://pkg.go.dev/badge/github.com/qrdl/testaroli.svg)](https://pkg.go.dev/github.com/qrdl/testaroli)
+[![Go Report Card](https://goreportcard.com/badge/github.com/qrdl/testaroli)](https://goreportcard.com/report/github.com/qrdl/testaroli)
+
+Package `testaroli` allows to monkey patch Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
 It can be used only for unit testing and never in production.
 
 ## Platforms suported
