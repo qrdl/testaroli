@@ -58,20 +58,22 @@ func Context(t *testing.T) context.Context {
 }
 
 // Testing returns context that embeds [testing.T] and a counter.
-// The conext must be created with [Context], otherwise thes function panics.
+// The context must be created with [Context], otherwise thes function panics.
 func Testing(ctx context.Context) *testing.T {
 	return ctx.Value(testingKey).(*testing.T)
 }
 
 // Counter returns the counter, embedded into the context.
-// The conext must be created with [Context], otherwise thes function panics.
+// The context must be created with [Context], otherwise thes function panics.
 func Counter(ctx context.Context) int {
 	return *ctx.Value(callCounter).(*int)
 }
 
 // Increment increments the counter, embedded into the context.
-// The conext must be created with [Context], otherwise thes function panics.
-func Increment(ctx context.Context) {
+// It returns the value of the counter before the increment operation.
+// The context must be created with [Context], otherwise thes function panics.
+func Increment(ctx context.Context) int {
 	counter := ctx.Value(callCounter).(*int)
-	*counter++
+	defer func() { *counter++ }()
+	return *counter
 }
