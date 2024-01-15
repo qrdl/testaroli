@@ -52,8 +52,7 @@ func TestAccStatus(t *testing.T) {
 	testaroli.Instead(testaroli.Context(t), accStatus, func(acc string) AccStatus {
 		ctx := testaroli.LookupContext(accStatus)
 		t := testaroli.Testing(ctx)
-		counter := testaroli.Counter(ctx)
-		defer testaroli.Increment(ctx)
+		counter := testaroli.Increment(ctx)
 		if counter == 0 {
 			assert.Equal(t, "111", acc)
 			return AccStatusDebitable
