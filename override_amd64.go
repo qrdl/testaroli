@@ -14,7 +14,7 @@ var orgContent = map[uintptr][]byte{}
 func override(ctx context.Context, orgPointer, mockPointer unsafe.Pointer) {
 	// allow updating memory page with orig function code and leave it like this to allow further
 	// restoration of original function prologue
-	err := makeMemWritable(orgPointer, jmpInstrLength)	// call OS-specific function
+	err := makeMemWritable(orgPointer, jmpInstrLength) // call OS-specific function
 	if err != nil {
 		panic(err)
 	}

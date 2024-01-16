@@ -28,37 +28,37 @@ Recommended command to run tests:
 
 Example:
 
-    // you want to test function foo() which in turn calls function bar(), so you
-    // override function bar() to check whether it is called with correct argument
-    // and to return preferdined result
+	// you want to test function foo() which in turn calls function bar(), so you
+	// override function bar() to check whether it is called with correct argument
+	// and to return preferdined result
 
-    func foo() error {
-        ...
-        if err := bar(baz); err != nil {
-            return err
-        }
-        ...
-    }
+	func foo() error {
+	    ...
+	    if err := bar(baz); err != nil {
+	        return err
+	    }
+	    ...
+	}
 
-    func bar(baz int) error {
-        ...
-    }
+	func bar(baz int) error {
+	    ...
+	}
 
-    func TestBarFailing(t *testing.T) {
-        testaroli.Override(testeroli.NewContext(t), bar, func(a int) error {
-            if a != 42 {  // check arg
-                testaroli.Testing(testaroli.LookupContext(bar)).
-                    Errorf("unexpected arg value %v", a)
-            }
-            return ErrInvalid  // simulate failure
-        })
-        defer testaroli.Reset(bar)  // reset org function in order not to break other tests
+	func TestBarFailing(t *testing.T) {
+	    testaroli.Override(testeroli.NewContext(t), bar, func(a int) error {
+	        if a != 42 {  // check arg
+	            testaroli.Testing(testaroli.LookupContext(bar)).
+	                Errorf("unexpected arg value %v", a)
+	        }
+	        return ErrInvalid  // simulate failure
+	    })
+	    defer testaroli.Reset(bar)  // reset org function in order not to break other tests
 
-        err := foo()
-        if !errors.Is(err, ErrInvalid) {
-            t.Errorf("unexpected %v", err)
-        }
-    }
+	    err := foo()
+	    if !errors.Is(err, ErrInvalid) {
+	        t.Errorf("unexpected %v", err)
+	    }
+	}
 */
 package testaroli
 
@@ -70,6 +70,7 @@ import (
 /*
 Override overrides org with mock. The signatures of org and mock must match exactly,
 otherwise compilation error will be reported.
+It also sets the context `ctx` for the function being overridden, that later can be retrieved with [LookupContext].
 
 Override can be used with regular functions and methods, hoverever there is a caveat - mock method
 should specify the method's object as a first argument, like in example below:
