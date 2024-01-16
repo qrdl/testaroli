@@ -13,43 +13,43 @@ func TestTransferOK(t *testing.T) {
 }
 
 func TestTransferDebitAccountNotOK(t *testing.T) {
-	testaroli.Instead(testaroli.Context(t), isDebitable, func(acc string) bool {
+	testaroli.Override(testaroli.NewContext(t), isDebitable, func(acc string) bool {
 		t := testaroli.Testing(testaroli.LookupContext(isDebitable))
 		assert.Equal(t, "111", acc)
 		return false
 	})
-	defer testaroli.Restore(isDebitable)
+	defer testaroli.Reset(isDebitable)
 
 	err := transfer("111", "222", 2.0)
 	assert.ErrorIs(t, err, ErrInvalid)
 }
 
 func TestTransferCreditAccountNotOK(t *testing.T) {
-	testaroli.Instead(testaroli.Context(t), isCreditable, func(acc string) bool {
+	testaroli.Override(testaroli.NewContext(t), isCreditable, func(acc string) bool {
 		t := testaroli.Testing(testaroli.LookupContext(isCreditable))
 		assert.Equal(t, "222", acc)
 		return false
 	})
-	defer testaroli.Restore(isCreditable)
+	defer testaroli.Reset(isCreditable)
 
 	err := transfer("111", "222", 2.0)
 	assert.ErrorIs(t, err, ErrInvalid)
 }
 
 func TestTransferNotEnoughFunds(t *testing.T) {
-	testaroli.Instead(testaroli.Context(t), accBalance, func(acc string) float64 {
+	testaroli.Override(testaroli.NewContext(t), accBalance, func(acc string) float64 {
 		t := testaroli.Testing(testaroli.LookupContext(accBalance))
 		assert.Equal(t, "111", acc)
 		return 1.0
 	})
-	defer testaroli.Restore(accBalance)
+	defer testaroli.Reset(accBalance)
 
 	err := transfer("111", "222", 2.0)
 	assert.ErrorIs(t, err, ErrNotEnoughFunds)
 }
 
 func TestAccStatus(t *testing.T) {
-	testaroli.Instead(testaroli.Context(t), accStatus, func(acc string) AccStatus {
+	testaroli.Override(testaroli.NewContext(t), accStatus, func(acc string) AccStatus {
 		ctx := testaroli.LookupContext(accStatus)
 		t := testaroli.Testing(ctx)
 		counter := testaroli.Increment(ctx)
@@ -61,7 +61,7 @@ func TestAccStatus(t *testing.T) {
 			return AccStatusCreditable
 		}
 	})
-	defer testaroli.Restore(accStatus)
+	defer testaroli.Reset(accStatus)
 
 	err := transfer("111", "222", 2.0)
 	assert.NoError(t, err)

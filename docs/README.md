@@ -23,9 +23,9 @@ OS/arch combinations:
 
 ## Command line options
 
-Due to live patching of running binary there are certain limitations that may require extra CLI options:
+Due to patching of running binary there are certain limitations that may require extra CLI options:
 - inlined functions cannot be overridden, so to prevent inlining use `-gcflags=-l` CLI option when running tests
-- Instead() function modifies the binary on the fly, therefore running tests in parallel may produce unpredictible results, so better to avoid it using `-p=1` CLI option
+- Override() function modifies the binary on the fly, therefore running tests in parallel may produce unpredictible results, so better to avoid it using `-p=1` CLI option
 
 Recommended command to run tests:
 
@@ -51,13 +51,13 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
-    testaroli.Instead(testeroli.Context(t), bar, func(baz int) error {
-        if baz != 42 {  // check arg
+    testaroli.Override(testeroli.NewContext(t), bar, func(a int) error {
+        if a != 42 {  // check arg
             testaroli.Testing(testaroli.LookupContext(bar)).Errorf("unexpected arg value %v", a)
         }
         return ErrInvalid  // simulate failure
     })
-    defer testaroli.Restore(bar)  // restore original function in order not to break other tests
+    defer testaroli.Reset(bar)  // reset original function in order not to break other tests
     
     err := foo()
     if !errors.Is(err, ErrInvalid) {
