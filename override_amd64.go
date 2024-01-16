@@ -11,10 +11,10 @@ const jmpInstrCode = uint8(0xE9)
 
 var orgContent = map[uintptr][]byte{}
 
-func instead(ctx context.Context, orgPointer, mockPointer unsafe.Pointer) {
+func override(ctx context.Context, orgPointer, mockPointer unsafe.Pointer) {
 	// allow updating memory page with orig function code and leave it like this to allow further
 	// restoration of original function prologue
-	err := makeMemWritable(orgPointer, jmpInstrLength)
+	err := makeMemWritable(orgPointer, jmpInstrLength) // call OS-specific function
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func instead(ctx context.Context, orgPointer, mockPointer unsafe.Pointer) {
 	binary.NativeEndian.PutUint32(funcPrologue[1:], uint32(jumpLocation))
 }
 
-func restore(ptr unsafe.Pointer) {
+func reset(ptr unsafe.Pointer) {
 	funcBegin := unsafe.Slice((*uint8)(ptr), jmpInstrLength)
 	copy(funcBegin, orgContent[uintptr(ptr)])
 }
