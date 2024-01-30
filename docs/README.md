@@ -23,20 +23,15 @@ OS/arch combinations:
 
 ## Command line options
 
-Due to patching of running binary there are certain limitations that may require extra CLI options:
-- inlined functions cannot be overridden, so to prevent inlining use `-gcflags=-l` CLI option when running tests
-- Override() function modifies the binary on the fly, therefore running tests in parallel may produce unpredictible results, so better to avoid it using `-p=1` CLI option
+Inlined functions cannot be overridden, so to prevent inlining use `-gcflags=all=-l` CLI option when running tests, like this:
 
-Recommended command to run tests:
+`go test -gcflags=all=-l [<path>]`
 
-`go test -gcflags=-l -p=1 [<path>]`
-
-Example:
-
+Typical use:
 ```
 // you want to test function foo() which in turn calls function bar(), so you
-// override function bar() to check whether it is called with correct arguments
-// and to return preferdined result.
+// override function bar() to check whether it is called with correct argument
+// and to return preferdined result
 
 func foo() error {
     ...
@@ -51,17 +46,20 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
-    testaroli.Override(testeroli.NewContext(t), bar, func(a int) error {
-        if a != 42 {  // check arg
-            testaroli.Testing(testaroli.LookupContext(bar)).Errorf("unexpected arg value %v", a)
-        }
-        return ErrInvalid  // simulate failure
-    })
-    defer testaroli.Reset(bar)  // reset original function in order not to break other tests
-    
+    mock := testaroli.New(context.TODO(), t)
+
+    //            v-- how many runs expected
+    testaroli.Ovr(1, bar, func(a int) error {
+        testaroli.Expectation().Args(a)  // <-- arg value checked here
+        return ErrInvalid
+    })(42) // <-- expected argument value
+
     err := foo()
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
+    }
+    it err = mock.ExpectationsWereMet(); err != nil {
+        t.Error(err)
     }
 }
 ```

@@ -16,12 +16,12 @@ const (
 var ErrInvalid = errors.New("invalid account status")
 var ErrNotEnoughFunds = errors.New("not enough funds")
 var accounts = map[string]float64{
-	"111": 123.45,
-	"222": 234.56,
+	"1024": 123.45,
+	"2048": 234.56,
 }
 
 func main() {
-	if err := transfer("111", "222", 1.23); err != nil {
+	if err := transfer("1024", "2048", 1.23); err != nil {
 		fmt.Printf("Transfer failed: %v", err)
 	} else {
 		fmt.Println("Transfer successful")

@@ -13,6 +13,7 @@ const (
 )
 
 type Acc struct {
+	number  string
 	status  AccStatus
 	balance float64
 }
@@ -21,13 +22,13 @@ var ErrInvalid = errors.New("invalid account status")
 var ErrNotEnoughFunds = errors.New("not enough funds")
 var ErrNotFound = errors.New("unknown account")
 var accounts = map[string]float64{
-	"111": 123.45,
-	"222": 234.56,
+	"1024": 123.45,
+	"2048": 234.56,
 }
 
 func Account(acc string) (*Acc, error) {
 	if balance, ok := accounts[acc]; ok {
-		return &Acc{status: AccStatusDebitable | AccStatusCreditable, balance: balance}, nil
+		return &Acc{number: acc, status: AccStatusDebitable | AccStatusCreditable, balance: balance}, nil
 	}
 	return nil, ErrNotFound
 }
@@ -51,7 +52,7 @@ func Transfer(from, to string, amount float64) error {
 		return ErrInvalid
 	}
 
-	acc2, err := Account(from)
+	acc2, err := Account(to)
 	if err != nil {
 		return err
 	}

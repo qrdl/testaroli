@@ -2,45 +2,68 @@ package main
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/qrdl/testaroli"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestTransferOK(t *testing.T) {
-	err := Transfer("111", "222", 2.0)
-	assert.NoError(t, err)
+	err := Transfer("1024", "2048", 2.0)
+	testError(t, nil, err)
 }
 
 func TestTransferDebitAccountNotOK(t *testing.T) {
-	testaroli.Override(context.TODO(), Acc.IsDebitable, func(Acc) bool {
-		defer testaroli.Reset(Acc.IsDebitable)
+	mock := testaroli.New(context.TODO(), t)
+
+	testaroli.Override(1, Acc.IsDebitable, func(Acc) bool {
+		testaroli.Expectation()
 		return false
 	})
 
-	err := Transfer("111", "222", 2.0)
-	assert.ErrorIs(t, err, ErrInvalid)
+	err := Transfer("1024", "2048", 2.0)
+	testError(t, ErrInvalid, err)
+	testError(t, nil, mock.ExpectationsWereMet())
 }
 
 func TestTransferNotEnoughFunds(t *testing.T) {
-	testaroli.Override(context.TODO(), Acc.Balance, func(acc Acc) float64 {
-		defer testaroli.Reset(Acc.Balance)
-		return acc.balance * -1
-	})
+	mock := testaroli.New(context.TODO(), t)
 
-	err := Transfer("111", "222", 2.0)
-	assert.ErrorIs(t, err, ErrNotEnoughFunds)
+	testaroli.Override(1, Acc.Balance, func(acc Acc) float64 {
+		testaroli.Expectation().CheckArgs(acc)
+		return acc.balance * -1
+	})(Acc{status: AccStatusDebitable | AccStatusCreditable, balance: 123.45, number: "1024"})
+
+	err := Transfer("1024", "2048", 2.0)
+	testError(t, ErrNotEnoughFunds, err)
+	testError(t, nil, mock.ExpectationsWereMet())
 }
 
 func TestTransferFail(t *testing.T) {
-	testaroli.Override(testaroli.NewContext(t), interAccountTransfer, func(from, to *Acc, amount float64) error {
-		defer testaroli.Reset(interAccountTransfer)
-		t := testaroli.Testing(testaroli.LookupContext(interAccountTransfer))
-		assert.Equal(t, 2.0, amount)
+	mock := testaroli.New(context.TODO(), t)
+
+	testaroli.Override(1, interAccountTransfer, func(from, to *Acc, amount float64) error {
+		testaroli.Expectation().Expect("1024", "2048", 2.0).CheckArgs(from.number, to.number, amount)
 		return ErrInvalid
 	})
 
-	err := Transfer("111", "222", 2.0)
-	assert.ErrorIs(t, err, ErrInvalid)
+	err := Transfer("1024", "2048", 2.0)
+	testError(t, ErrInvalid, err)
+	testError(t, nil, mock.ExpectationsWereMet())
+}
+
+func testError(t *testing.T, expected, actual error) {
+	t.Helper()
+	if expected == nil && actual != nil {
+		t.Errorf("got [%v] error when no error expected", actual)
+		return
+	}
+	if expected != nil && actual == nil {
+		t.Errorf("no error reported when [%v] error expected", expected)
+		return
+	}
+	if !errors.Is(expected, actual) {
+		t.Errorf("got [%v] error when [%v] error expected", actual, expected)
+		return
+	}
 }
