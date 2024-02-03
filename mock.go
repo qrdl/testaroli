@@ -43,9 +43,9 @@ Typical use:
 	func TestBarFailing(t *testing.T) {
 	    mock := testaroli.New(context.TODO(), t)
 
-	    //            v-- how many runs expected
-	    testaroli.Ovr(1, bar, func(a int) error {
-	        testaroli.Expectation().Args(a)  // <-- arg value checked here
+	    //                 v-- how many runs expected
+	    testaroli.Override(1, bar, func(a int) error {
+	        testaroli.Expectation().CheckArgs(a)  // <-- arg value checked here
 	        return ErrInvalid
 	    })(42) // <-- expected argument value
 

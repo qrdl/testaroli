@@ -81,7 +81,7 @@ func (e Expect) RemainingRuns() int {
 }
 
 /*
-Expect sets the expected argumant values, that can be later checked with [Args].
+Expect sets the expected argument values, that can be later checked with [Args].
 See [Override] for better way (with compile-time type checks) of setting expected values.
 */
 func (e *Expect) Expect(args ...any) *Expect {
@@ -112,25 +112,53 @@ func (e Expect) CheckArgs(args ...any) {
 	for i, a := range args {
 		actualArg := reflect.ValueOf(a)
 		expectedArg := e.args[i]
-		if actualArg.Type() != expectedArg.Type() {
-			if e.expCount > 1 || e.actCount == 0 {
+		if a == nil || actualArg.IsNil() {
+			if !expectedArg.IsNil() {
+				if e.expCount > 1 || e.expCount == 0 {
+					globalMock.t.Errorf(
+						"%s arg on the %s run actual value is nil while non-nil is expected",
+						ordinal(i+1),
+						ordinal(e.actCount))
+				} else {
+					globalMock.t.Errorf(
+						"%s arg run actual value is nil while non-nil is expected",
+						ordinal(i+1))
+				}
+			}
+			return
+		}
+		if expectedArg.IsNil() {
+			if e.expCount > 1 || e.expCount == 0 {
 				globalMock.t.Errorf(
-					"%s arg on the %s run expected (%s) and actual (%s) types differ",
+					"%s arg on the %s run actual value is non-nil while nil is expected",
 					ordinal(i+1),
-					ordinal(e.actCount),
-					expectedArg.Type(),
-					actualArg.Type())
+					ordinal(e.actCount))
 			} else {
 				globalMock.t.Errorf(
-					"%s arg expected (%s) and actual (%s) types differ",
+					"%s arg actual value is non-nil while nil is expected",
+					ordinal(i+1))
+			}
+			return
+		}
+		if actualArg.Type() != expectedArg.Type() {
+			if e.expCount > 1 || e.expCount == 0 {
+				globalMock.t.Errorf(
+					"%s arg on the %s run actual type (%s) differs from expected (%s)",
 					ordinal(i+1),
-					expectedArg.Type(),
-					actualArg.Type())
+					ordinal(e.actCount),
+					actualArg.Type(),
+					expectedArg.Type())
+			} else {
+				globalMock.t.Errorf(
+					"%s arg actual (%s) type differs from expected (%s)",
+					ordinal(i+1),
+					actualArg.Type(),
+					expectedArg.Type())
 			}
 			return
 		}
 		if !actualArg.Equal(expectedArg) {
-			if e.expCount > 1 || e.actCount == 0 {
+			if e.expCount > 1 || e.expCount == 0 {
 				globalMock.t.Errorf(
 					"%s arg on the %s run actual value '%v' differs from expected '%v'",
 					ordinal(i+1),
