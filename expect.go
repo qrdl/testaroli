@@ -112,7 +112,8 @@ func (e Expect) CheckArgs(args ...any) {
 	for i, a := range args {
 		actualArg := reflect.ValueOf(a)
 		expectedArg := e.args[i]
-		if a == nil || actualArg.IsNil() {
+		if a == nil {
+			// no risk in calling IsNil here since we already established that type is nilable
 			if !expectedArg.IsNil() {
 				if e.expCount > 1 || e.expCount == 0 {
 					globalMock.t.Errorf(
@@ -124,19 +125,6 @@ func (e Expect) CheckArgs(args ...any) {
 						"%s arg run actual value is nil while non-nil is expected",
 						ordinal(i+1))
 				}
-			}
-			return
-		}
-		if expectedArg.IsNil() {
-			if e.expCount > 1 || e.expCount == 0 {
-				globalMock.t.Errorf(
-					"%s arg on the %s run actual value is non-nil while nil is expected",
-					ordinal(i+1),
-					ordinal(e.actCount))
-			} else {
-				globalMock.t.Errorf(
-					"%s arg actual value is non-nil while nil is expected",
-					ordinal(i+1))
 			}
 			return
 		}
