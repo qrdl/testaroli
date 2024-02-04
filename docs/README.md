@@ -65,3 +65,11 @@ func TestBarFailing(t *testing.T) {
 ```
 
 See more advanced usage examples in [examples](examples) directory.
+
+# Diagnostics
+
+This package tries to provide as detailed diagnostics as possible so sometimes it
+produces too much noise, please bear with it.
+To lower the cognitive load all numbers are zero-based: array and slice index,
+function argument sequence, the number of function call. However, when you specify
+expected number of function calls in Override, use one-based numbering.

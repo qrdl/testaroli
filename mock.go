@@ -45,7 +45,7 @@ Typical use:
 
 	    //                 v-- how many runs expected
 	    testaroli.Override(1, bar, func(a int) error {
-	        testaroli.Expectation().CheckArgs(a)  // <-- arg value checked here
+	        testaroli.Expectation().CheckArgs(a)  // <-- actual arg 'a' value compared with expected value 42
 	        return ErrInvalid
 	    })(42) // <-- expected argument value
 
@@ -59,6 +59,15 @@ Typical use:
 	}
 
 For more complex examples see 'examples' directory
+
+# Diagnostics
+
+This package tries to provide as detailed diagnostics as possible so sometimes it
+produces too much noise, please bear with it.
+
+To lower the cognitive load all numbers are zero-based: array and slice index,
+function argument sequence, the number of function call. However, when you specify
+expected number of function calls in [Override], use one-based numbering.
 */
 package testaroli
 
@@ -73,8 +82,8 @@ import (
 const Unlimited = -1
 
 /*
-Mock holds all information about expectations and allows to query final result with [ExpectationsWereMet].
-It is important to finalise the Mock with [ExpectationsWereMet], it means you need to call it at the end
+Mock holds all information about expectations and allows to query final result with [Mock.ExpectationsWereMet].
+It is important to finalise the Mock with [Mock.ExpectationsWereMet], it means you need to call it at the end
 of each test case to make sure all overridden functions are reset to their initial state and can be used
 by other test cases.
 */
@@ -88,10 +97,12 @@ var globalMock Mock
 
 /*
 New creates a new instance of Mock object.
-It takes a context, which later can be accessed inside the mock using [Expectation.Context], and [testing.T]
-parameter to report detected errors.
-It is important to understand that although mocks defined within test function scope, in fact they are executed
-in the scope of overridded function, it means that the only way for mock to access variables, defined in the test
+
+It takes a context, which later can be accessed inside the mock using [Mock.Context] or [Expect.Context],
+and [testing.T] parameter to report detected errors.
+
+It is important to understand that although mock is defined within test function scope, in fact it is executed
+in the scope of overridden function, it means that the only way for mock to access variables, defined in the test
 function scope, it to pass them in this context. Accessing such variables directly results in Undefined Behaviour.
 
 Example of using context for passing data to the mock function:
@@ -100,11 +111,11 @@ Example of using context for passing data to the mock function:
 
 	testaroli.Override(1, foo, func(a string) {
 	    e := Expectation()
-	    e.Expect(e.Context().Value(1).(string)).Args(a)
+	    e.Expect(e.Context().Value(1).(string)).CheckArgs(a)
 	})
 
-New panics if there is another non-finalized Mock object, because having several active Mock (that modify
-running binary) leads to Undefined Behaviour.
+New panics if there is another non-finalized Mock object, because having several active Mock objects (each modifying
+running binary) can lead to undefined behaviour.
 */
 func New(ctx context.Context, t *testing.T) *Mock {
 	if len(globalMock.expected) != 0 {
@@ -121,7 +132,9 @@ func New(ctx context.Context, t *testing.T) *Mock {
 /*
 ExpectationsWereMet checks that all expected overridden functions were called.
 It doesn't check correct order of functions called (it is responsibility of [Expectation]) and
-it doesn't check function arguments (it is responsibility of [Expectations.Args]).
+it doesn't check function arguments (it is responsibility of [Expect.CheckArgs]).
+It is important to call ExpectationsWereMet at the end of test case to restore original state
+of overridden functions.
 */
 func (m *Mock) ExpectationsWereMet() error {
 	defer func() { m.expected = nil }()
@@ -131,7 +144,7 @@ func (m *Mock) ExpectationsWereMet() error {
 			reset(m.expected[0].orgAddr, m.expected[0].orgPrologue)
 		}
 		// special case - last expectation has unlimited number of repetitions, so it is not an error
-		if len(m.expected) == 1 && m.expected[0].expCount == Unlimited {
+		if m.expected[0].expCount == Unlimited {
 			return nil
 		}
 		return fmt.Errorf("some expectations weren't met - function %s was not called", m.expected[0].orgName)
@@ -156,19 +169,19 @@ func (m Mock) Testing() *testing.T {
 /*
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,
 otherwise compilation error will be reported.
-It also has <count> argument to specify how many calls to <org> functions are expected.
-After <org> function got called <count> times, the <org> function is no longer overridden and
-next override in the chain becomes effective.
-[Unlimited] value for <count> means that there is no limit for number of <org> calls, and such expectation
-only can be the last one in the chain.
+It has <count> argument to specify how many calls to <org> functions are expected, which must be
+a positive number. After <org> function got called <count> times, the <org> function is no longer
+overridden and next override in the chain becomes effective.
+[Unlimited] value for <count> means that there is no limit for number of <org> calls, and such override
+can only be the last one in the chain of overrides.
 
 Override returns function of generic type T that allows to set expected values for function call, like this:
 
-	Override(1, foo, func (a int, b string) { Expectation().Args(a, b) })(42, "bar")
+	Override(1, foo, func (a int, b string) { Expectation().CheckArgs(a, b) })(42, "bar")
 
 It has the same effect as
 
-	Override(1, foo, func (a int, b string) { Expectation().Expect(42, "bar").Args(a, b) })
+	Override(1, foo, func (a int, b string) { Expectation().Expect(42, "bar").CheckArgs(a, b) })
 
 but has a benefit of checking types for expected values at compile time, thanks to Go generics.
 
@@ -181,6 +194,10 @@ func Override[T any](count int, org, mock T) T {
 
 	if len(globalMock.expected) > 0 && globalMock.expected[len(globalMock.expected)-1].expCount == Unlimited {
 		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
+	}
+
+	if count <= 0 && count != Unlimited {
+		panic("Invalid count: must be a positive number or Unlimited")
 	}
 
 	orgPointer := reflect.ValueOf(org).UnsafePointer()
