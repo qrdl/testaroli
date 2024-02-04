@@ -68,7 +68,7 @@ func TestNotCreditable(t *testing.T) {
 
 	testaroli.Override(2, accStatus, func(acc string) AccStatus {
 		f := testaroli.Expectation()
-		if f.RunNumber() == 1 {
+		if f.RunNumber() == 0 {
 			f.Expect(f.Context().Value(1).(string))
 		} else {
 			f.Expect("2048")
