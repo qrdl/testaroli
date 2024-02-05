@@ -90,6 +90,10 @@ func (e *Expect) Expect(args ...any) *Expect {
 
 /*
 CheckArgs checks if actual values match the expected ones.
+
+Please note that when reporting differences, this function always use zero-based
+numbering - for array/slice elements, function arguments and run numbers, e.g. first
+call (if function was overridden for several calls) is called `run 0`
 */
 func (e Expect) CheckArgs(args ...any) {
 	globalMock.t.Helper()
@@ -123,23 +127,6 @@ func (e Expect) CheckArgs(args ...any) {
 				}
 			}
 			continue
-		}
-		if actualArg.Type() != expectedArg.Type() {
-			if e.expCount > 1 || e.expCount == Unlimited {
-				globalMock.t.Errorf(
-					"arg %d on the run %d actual type (%s) differs from expected (%s)",
-					i,
-					e.actCount-1, // 0-based
-					actualArg.Type(),
-					expectedArg.Type())
-			} else {
-				globalMock.t.Errorf(
-					"arg %d actual (%s) type differs from expected (%s)",
-					i,
-					actualArg.Type(),
-					expectedArg.Type())
-			}
-			return
 		}
 		res, msg := equal(actualArg, expectedArg)
 		if !res {
@@ -195,7 +182,7 @@ func equal(a, e reflect.Value) (bool, string) {
 	}
 
 	if a.Kind() != e.Kind() || a.Type() != e.Type() {
-		return false, "incompatible types"
+		return false, fmt.Sprintf("actual type '%s' differs from expected '%s'", a.Type(), e.Type())
 	}
 
 	switch a.Kind() {
@@ -214,6 +201,9 @@ func equal(a, e reflect.Value) (bool, string) {
 	case reflect.Chan:
 		return a.Pointer() == e.Pointer(), ""
 	case reflect.Pointer, reflect.UnsafePointer: // my change
+		if a.Pointer() == e.Pointer() {
+			return true, ""
+		}
 		res, str := equal(reflect.Indirect(a), reflect.Indirect(e))
 		if !res && str == "" {
 			str = fmt.Sprintf("actual value '%v' differs from expected '%v'", reflect.Indirect(a), reflect.Indirect(e))
@@ -277,8 +267,11 @@ func equal(a, e reflect.Value) (bool, string) {
 		if vl != e.Len() {
 			return false, "slice lengths differ"
 		}
+		if a.Pointer() == e.Pointer() {
+			return true, ""
+		}
 		if vl == 0 {
-			// panic on [0]func()
+			// error reported on exit from func
 			if !a.Type().Elem().Comparable() {
 				break
 			}
