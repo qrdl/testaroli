@@ -18,11 +18,11 @@ jobs:
       with:
         go-version-file: './go.mod'
 
-    - name: Test
-      run: go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./...
+    - name: Test examples
+      run: go test -v -gcflags="all=-N -l" ./examples/...
 
     - name: Test coverage
-        run: |
-          go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.
-          go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}'
-          rm coverage.out
+      run: |
+        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.
+        go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}'
+        rm coverage.out
