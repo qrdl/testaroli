@@ -25,4 +25,3 @@ jobs:
       run: |
         go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.
         go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}'
-        rm coverage.out
