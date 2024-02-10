@@ -245,6 +245,9 @@ func equal(a, e reflect.Value) (bool, string) {
 		}
 		return true, ""
 	case reflect.Map: // my change
+		if a.Pointer() == e.Pointer() {
+			return true, ""
+		}
 		keys := a.MapKeys()
 		if len(keys) != len(e.MapKeys()) {
 			return false, "map lengths differ"
@@ -261,8 +264,12 @@ func equal(a, e reflect.Value) (bool, string) {
 		}
 		return true, ""
 	case reflect.Func:
-		break
+		return a.Pointer() == e.Pointer(), ""
+		// function can be equal only to itself
 	case reflect.Slice: // my change
+		if a.Pointer() == e.Pointer() {
+			return true, ""
+		}
 		vl := a.Len()
 		if vl != e.Len() {
 			return false, "slice lengths differ"
