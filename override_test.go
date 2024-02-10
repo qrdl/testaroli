@@ -136,7 +136,7 @@ func TestModifyContext(t *testing.T) {
 
 	testError(t, nil, err)
 	testError(t, nil, mock.ExpectationsWereMet())
-	if *(mock.Context().Value(1).(*int)) != 42 {
+	if *(mock.Context().Value(key).(*int)) != 42 {
 		t.Errorf("context not changed")
 	}
 }
