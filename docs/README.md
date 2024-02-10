@@ -5,7 +5,7 @@
 ![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)
 ![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)
 
-Package `testaroli` allows to monkey patch Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
+Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
 It can be used only for unit testing and never in production.
 
 ## Platforms suported
@@ -14,18 +14,18 @@ This package modifies actual executable at runtime, therefore is OS- and CPU arc
 
 OS/arch combinations:
 
-|         | x86_64    | ARM64   |
-|---------|-----------|---------|
-| Linux   | Supported | Planned |
-| Windows | Supported | -       |
-| macOS   | Planned   | Planned |
+|         | x86_64    | ARM64     |
+|---------|-----------|-----------|
+| Linux   | Supported | Supported |
+| Windows | Supported | -         |
+| macOS   | Planned   | Planned   |
 
 
 ## Command line options
 
-Inlined functions cannot be overridden, so to prevent inlining use `-gcflags=all=-l` CLI option when running tests, like this:
+It is recommended to switch off compiler optimisations and disable function inlining using `-gcflags="all=-N -l"` CLI option when running tests, like this:
 
-`go test -gcflags=all=-l [<path>]`
+`go test -gcflags="all=-N -l" [<path>]`
 
 Typical use:
 ```

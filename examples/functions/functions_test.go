@@ -62,14 +62,17 @@ func TestNoEnoughFunds(t *testing.T) {
 	testError(t, nil, mock.ExpectationsWereMet())
 }
 
+type contextKey int
+const key = contextKey(1)
+
 func TestNotCreditable(t *testing.T) {
-	mock := testaroli.New(context.WithValue(context.TODO(), 1, "1024"), t)
+	mock := testaroli.New(context.WithValue(context.TODO(), key, "1024"), t)
 	defer func() { testError(t, nil, mock.ExpectationsWereMet()) }()
 
 	testaroli.Override(2, accStatus, func(acc string) AccStatus {
 		f := testaroli.Expectation()
 		if f.RunNumber() == 0 {
-			f.Expect(f.Context().Value(1).(string))
+			f.Expect(f.Context().Value(key).(string))
 		} else {
 			f.Expect("2048")
 		}
