@@ -9,18 +9,19 @@ This package modifies actual executable at runtime, therefore is OS- and CPU arc
 
 Currently supported OS/arch combinations:
   - Linux / x86_64
+  - Linux / ARM64
   - Windows / x86_64
 
 Planned OS/arch combinations:
-  - Linux / ARM64
   - macOS / x86_64
   - macOS / ARM64
 
 # Command line options
 
-Inlined functions cannot be overridden, so to prevent inlining use `-gcflags=all=-l` CLI option when running tests, like this:
+It is recommended to switch off compiler optimisations and disable function inlining
+using `-gcflags="all=-N -l"` CLI option when running tests, like this:
 
-	go test -gcflags=all=-l [<path>]
+	go test -gcflags="all=-N -l" [<path>]
 
 Typical use:
 
