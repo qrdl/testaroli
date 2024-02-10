@@ -7,26 +7,22 @@ import (
 )
 
 func makeMemWritable(ptr unsafe.Pointer, size int) error {
-	pageSize := os.Getpagesize()
-	page := unsafe.Slice(
-		(*uint8)(
-			// Have to go long way to avoid "possible misuse of unsafe.Pointer" warning
-			unsafe.Pointer(
-				uintptr(ptr)&^uintptr(pageSize-1),
-			),
-		),
-		pageSize)
-	err := syscall.Mprotect(page, syscall.PROT_WRITE|syscall.PROT_READ|syscall.PROT_EXEC)
+	pageSize := uintptr(os.Getpagesize())
+	pageStart := unsafe.Pointer(uintptr(ptr) &^ (pageSize - 1))
+	err := makePageWritable(pageStart, pageSize)
 	if err != nil {
 		return err
 	}
 
-	// if buffer spans more then one page, make next page writable as well
-	if uintptr(ptr)+uintptr(size) > uintptr(ptr)|uintptr(pageSize-1) {
-		return makeMemWritable(
-			unsafe.Pointer(uintptr(ptr)&^uintptr(pageSize-1)+uintptr(pageSize)), // next page start
-			int(uintptr(ptr)+uintptr(size)-uintptr(ptr)|uintptr(pageSize-1)))    // buf overlap with next page
+	nextPageStart := unsafe.Add(pageStart, pageSize)
+	if uintptr(ptr)+uintptr(size) > uintptr(nextPageStart) {
+		return makePageWritable(nextPageStart, pageSize)
 	}
 
 	return nil
+}
+
+func makePageWritable(start unsafe.Pointer, size uintptr) error {
+	page := unsafe.Slice((*uint8)(start), size)
+	return syscall.Mprotect(page, syscall.PROT_WRITE|syscall.PROT_READ|syscall.PROT_EXEC)
 }

@@ -213,10 +213,6 @@ func equal(a, e reflect.Value) (bool, string) {
 		// u and v have the same type so they have the same length
 		vl := a.Len()
 		if vl == 0 {
-			// error reported on exit from func
-			if !a.Type().Elem().Comparable() {
-				break
-			}
 			return true, ""
 		}
 		for i := 0; i < vl; i++ {
@@ -274,14 +270,7 @@ func equal(a, e reflect.Value) (bool, string) {
 		if vl != e.Len() {
 			return false, "slice lengths differ"
 		}
-		if a.Pointer() == e.Pointer() {
-			return true, ""
-		}
 		if vl == 0 {
-			// error reported on exit from func
-			if !a.Type().Elem().Comparable() {
-				break
-			}
 			return true, ""
 		}
 		for i := 0; i < vl; i++ {
@@ -295,8 +284,6 @@ func equal(a, e reflect.Value) (bool, string) {
 			}
 		}
 		return true, ""
-	default:
-		return false, "invalid variable Kind"
 	}
-	return false, "values of type " + a.Type().String() + " are not comparable"
+	return false, "invalid variable Kind"
 }

@@ -83,6 +83,12 @@ func TestBasicTypes(t *testing.T) {
 			"non-equal uint64", reflect.ValueOf(uint64(1)), reflect.ValueOf(uint64(2)), false, "",
 		},
 		{
+			"equal uintptr", reflect.ValueOf(uintptr(1)), reflect.ValueOf(uintptr(1)), true, "",
+		},
+		{
+			"non-equal uintptr", reflect.ValueOf(uintptr(1)), reflect.ValueOf(uintptr(2)), false, "",
+		},
+		{
 			"equal float32", reflect.ValueOf(float32(1.5)), reflect.ValueOf(float32(1.5)), true, "",
 		},
 		{
@@ -138,6 +144,7 @@ func TestCompositeTypes(t *testing.T) {
 	arr2 := [...]int{1, 2}
 	arr3 := [...]int{1, 2, 3}
 	arr4 := [...]int{1, 3}
+	zeroArr := [...]int{}
 	str1 := struct {
 		a int
 		b string
@@ -166,6 +173,8 @@ func TestCompositeTypes(t *testing.T) {
 	sl3 := []int{1, 2, 3}
 	sl4 := []int{2, 1}
 	sl5 := []float32{1, 2}
+	f := func(_ int) {}
+
 	cases := []testCase{
 		// channel can only match to itself
 		{
@@ -191,6 +200,9 @@ func TestCompositeTypes(t *testing.T) {
 		},
 		{
 			"array of diff length", reflect.ValueOf(arr1), reflect.ValueOf(arr3), false, "",
+		},
+		{
+			"zero array", reflect.ValueOf(zeroArr), reflect.ValueOf(zeroArr), true, "",
 		},
 		{
 			"non-matching array", reflect.ValueOf(arr1), reflect.ValueOf(arr4), false, "",
@@ -226,6 +238,9 @@ func TestCompositeTypes(t *testing.T) {
 			"map of different type", reflect.ValueOf(map1), reflect.ValueOf(map6), false, "",
 		},
 		{
+			"same func", reflect.ValueOf(f), reflect.ValueOf(f), true, "",
+		},
+		{
 			"func", reflect.ValueOf(func() {}), reflect.ValueOf(func() {}), false, "",
 		},
 		{
@@ -242,6 +257,9 @@ func TestCompositeTypes(t *testing.T) {
 		},
 		{
 			"slice of different base type", reflect.ValueOf(sl1), reflect.ValueOf(sl5), false, "",
+		},
+		{
+			"zero slice", reflect.ValueOf(sl1[:0]), reflect.ValueOf(sl3[:0]), true, "",
 		},
 	}
 
