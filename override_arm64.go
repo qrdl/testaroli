@@ -1,10 +1,12 @@
 package testaroli
 
 /*
-// I'm not sure how it works, but sometimes after updating function CPU still executes
-// old version (especially when you are using seveal mocks for the same function, one after
-// another), most likely it happens because instruction cache wasn't flushed and
-// execution switches to different core
+// I'm not sure how it works, but sometimes after updating binary in memory CPU
+// still executes old version (especially when you are using several mocks for
+// the same function, one after another), most likely it happens because
+// instruction cache wasn't flushed and execution switches to different core.
+// Using Go's atomics, C volatile and changing memory page protection don't help,
+// but flushing cache does.
 
 #cgo CFLAGS: -g -Wall
 #include <stdint.h>

@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+type contextKey int
+const key = contextKey(1)
+
 func foo(i int) error {
 	if i <= 100 {
 		return bar(i + 1)
@@ -48,11 +51,11 @@ func TestSingleCall(t *testing.T) {
 }
 
 func TestSeveralCalls(t *testing.T) {
-	mock := New(context.WithValue(context.Background(), 1, 100), t)
+	mock := New(context.WithValue(context.Background(), key, 100), t)
 
 	Override(2, baz, func(i int) error {
 		e := Expectation()
-		e.Expect(e.RunNumber() + e.Context().Value(1).(int))
+		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
 		e.CheckArgs(i)
 		return nil
 	})
@@ -116,11 +119,11 @@ func TestExpect(t *testing.T) {
 
 func TestModifyContext(t *testing.T) {
 	val := 100
-	mock := New(context.WithValue(context.Background(), 1, &val), t)
+	mock := New(context.WithValue(context.Background(), key, &val), t)
 
 	Override(1, bar, func(i int) error {
 		e := Expectation()
-		val := e.Context().Value(1).(*int)
+		val := e.Context().Value(key).(*int)
 		t := e.Testing()
 		if *val != 100 {
 			t.Errorf("unexpected context value")
