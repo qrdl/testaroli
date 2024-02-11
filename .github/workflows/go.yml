@@ -29,7 +29,7 @@ jobs:
       name: Calculate coverage
       if: matrix.os == 'ubuntu-latest'
       run: |
-        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{ print $3 }'" >> $GITHUB_OUTPUT
+        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{ print $3 }')" >> $GITHUB_OUTPUT
 
     - name: Generate badge
       if: matrix.os == 'ubuntu-latest'
