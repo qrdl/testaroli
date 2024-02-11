@@ -23,16 +23,16 @@ jobs:
 
     - name: Unit tests
       run: |
-        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.       
+        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out .
 
-    - name: Generate coverage badge
+    - id: cover
+      name: Generate coverage badge
       if: matrix.os == 'ubuntu-latest'
       run: |
-        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_ENV
-        echo "FOO=foo" >> $GITHUB_ENV
-        echo ${{ env.COVERAGE }}
-        echo ${{ env.FOO }}
-        curl https://img.shields.io/badge/Coverage-${{ env.COVERAGE }}%25-green -o badge.svg
+        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_OUTPUT
+        echo "FOO=foo" >> $GITHUB_OUTPUT
+        echo ${{ steps.cover.outputs.COVERAGE }}
+        echo ${{ steps.cover.outputs.FOO }}
 
     - name: Store badge
       if: matrix.os == 'ubuntu-latest'
