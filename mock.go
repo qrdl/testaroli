@@ -60,7 +60,6 @@ Typical use:
 	}
 
 For more complex examples see 'examples' directory
-
 */
 package testaroli
 
