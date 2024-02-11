@@ -8,22 +8,16 @@ import (
 )
 
 func makeMemWritable(ptr unsafe.Pointer, size int) error {
-	pageSize := uintptr(os.Getpagesize())
-	pageStart := unsafe.Pointer(uintptr(ptr) &^ (pageSize - 1))
-	err := makePageWritable(pageStart, pageSize)
-	if err != nil {
-		return err
-	}
+	start, sz := calcBoundaries(ptr, size)
 
-	nextPageStart := unsafe.Add(pageStart, pageSize)
-	if uintptr(ptr)+uintptr(size) > uintptr(nextPageStart) {
-		return makePageWritable(nextPageStart, pageSize)
-	}
-
-	return nil
+	page := unsafe.Slice((*uint8)(start), sz)
+	return unix.Mprotect(page, unix.PROT_WRITE|unix.PROT_READ|unix.PROT_EXEC)
 }
 
-func makePageWritable(start unsafe.Pointer, size uintptr) error {
-	page := unsafe.Slice((*uint8)(start), size)
-	return unix.Mprotect(page, unix.PROT_WRITE|unix.PROT_READ|unix.PROT_EXEC)
+func calcBoundaries(ptr unsafe.Pointer, size int) (unsafe.Pointer, uintptr) {
+	pageSize := uintptr(os.Getpagesize())
+	areaStart := unsafe.Pointer(uintptr(ptr) &^ (pageSize - 1))
+	areaSize := (uintptr(ptr) + uintptr(size)) - uintptr(areaStart)
+
+	return areaStart, areaSize
 }

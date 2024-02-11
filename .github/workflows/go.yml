@@ -21,7 +21,19 @@ jobs:
     - name: Test examples
       run: go test -v -gcflags="all=-N -l" ./examples/...
 
-    - name: Test coverage
+    - name: Unit tests
       run: |
-        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.
-        go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}'
+        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.       
+
+    - name: Generate coverage badge
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}')"" >> $GITHUB_ENV
+        curl https://img.shields.io/badge/Coverage-${{ env.COVERAGE }}%25-green -o badge.svg
+
+    - name: Store badge
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: badge
+        path: badge.svg
