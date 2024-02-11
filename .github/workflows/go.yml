@@ -29,6 +29,9 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_ENV
+        echo "FOO=foo" >> $GITHUB_ENV
+        echo ${{ env.COVERAGE }}
+        echo ${{ env.FOO }}
         curl https://img.shields.io/badge/Coverage-${{ env.COVERAGE }}%25-green -o badge.svg
 
     - name: Store badge
