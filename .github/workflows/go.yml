@@ -11,7 +11,6 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     outputs:
       output1: ${{ steps.cover.outputs.COVERAGE }}
-      output2: ${{ steps.cover.outputs.FOO }}
     steps:
     - uses: actions/checkout@v4
 
@@ -24,23 +23,17 @@ jobs:
       run: go test -v -gcflags="all=-N -l" ./examples/...
 
     - name: Unit tests
-      run: |
-        go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
+      run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
     - id: cover
-      name: Calc coverage
+      name: Calculate coverage
       if: matrix.os == 'ubuntu-latest'
       run: |
         echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_OUTPUT
-        echo "FOO=foo" >> $GITHUB_OUTPUT
 
     - name: Generate badge
       if: matrix.os == 'ubuntu-latest'
-      run: |
-        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_OUTPUT
-        echo "FOO=foo" >> $GITHUB_OUTPUT
-        echo ${{ steps.cover.outputs.COVERAGE }}
-        echo ${{ steps.cover.outputs.FOO }}
+      run: curl https://img.shields.io/badge/Coverage-${{ steps.cover.outputs.COVERAGE }}%25-green -o badge.svg
 
     - name: Store badge
       if: matrix.os == 'ubuntu-latest'
