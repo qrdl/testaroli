@@ -9,7 +9,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-
+    outputs:
+      output1: ${{ steps.cover.outputs.COVERAGE }}
+      output2: ${{ steps.cover.outputs.FOO }}
     steps:
     - uses: actions/checkout@v4
 
@@ -23,10 +25,16 @@ jobs:
 
     - name: Unit tests
       run: |
-        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out .
+        go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
     - id: cover
-      name: Generate coverage badge
+      name: Calc coverage
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_OUTPUT
+        echo "FOO=foo" >> $GITHUB_OUTPUT
+
+    - name: Generate badge
       if: matrix.os == 'ubuntu-latest'
       run: |
         echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{print $3}')" >> $GITHUB_OUTPUT
