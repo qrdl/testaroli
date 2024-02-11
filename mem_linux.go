@@ -2,8 +2,9 @@ package testaroli
 
 import (
 	"os"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 func makeMemWritable(ptr unsafe.Pointer, size int) error {
@@ -24,5 +25,5 @@ func makeMemWritable(ptr unsafe.Pointer, size int) error {
 
 func makePageWritable(start unsafe.Pointer, size uintptr) error {
 	page := unsafe.Slice((*uint8)(start), size)
-	return syscall.Mprotect(page, syscall.PROT_WRITE|syscall.PROT_READ|syscall.PROT_EXEC)
+	return unix.Mprotect(page, unix.PROT_WRITE|unix.PROT_READ|unix.PROT_EXEC)
 }
