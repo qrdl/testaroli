@@ -57,8 +57,9 @@ func Expectation() *Expect {
 		}
 	}
 
-	// check that we have called expected function
+	// make sure we have called expected function
 	if uintptr(e.mockAddr) != entry {
+		// should never happen
 		globalMock.t.Errorf("unexpected function call (expected %s)", e.orgName)
 		return &Expect{}
 	}
@@ -285,5 +286,5 @@ func equal(a, e reflect.Value) (bool, string) {
 		}
 		return true, ""
 	}
-	return false, "invalid variable Kind"
+	return false, "invalid variable Kind" // should never happen
 }
