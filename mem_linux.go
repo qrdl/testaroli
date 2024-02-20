@@ -7,7 +7,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func makeMemWritable(ptr unsafe.Pointer, size int) error {
+func replacePrologue(ptr unsafe.Pointer, buf []byte) error {
+	err := makeMemRX(ptr, len(buf))
+	if err != nil {
+		return err
+	}
+	funcPrologue := unsafe.Slice((*uint8)(ptr), len(buf))
+	copy(funcPrologue, buf)
+
+	return nil
+}
+
+func makeMemRX(ptr unsafe.Pointer, size int) error {
 	start, sz := calcBoundaries(ptr, size)
 
 	page := unsafe.Slice((*uint8)(start), sz)
