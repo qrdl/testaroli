@@ -26,21 +26,16 @@ const instrLength = 4
 const jmpInstrCode = uint8(0x14) // B instruction
 
 func override(orgPointer, mockPointer unsafe.Pointer) []byte {
-	// allow updating memory page with orig function code and leave it like this to allow further
-	// restoration of original function prologue
-	err := makeMemWritable(orgPointer, instrLength) // call OS-specific function
-	if err != nil {
-		panic(err)
-	}
-
 	funcPrologue := unsafe.Slice((*uint8)(orgPointer), instrLength)
 	orgPrologue := make([]byte, instrLength)
 	copy(orgPrologue, funcPrologue)
 
-	// replace original content with B <mock func relative offset (in instructions) >
+	newPrologue := make([]byte, instrLength)
 	jumpLocation := (uintptr(mockPointer) - (uintptr(orgPointer))) / uintptr(instrLength)
-	binary.NativeEndian.PutUint32(funcPrologue, uint32(jumpLocation))
-	funcPrologue[3] = jmpInstrCode
+	binary.NativeEndian.PutUint32(newPrologue, uint32(jumpLocation))
+	newPrologue[3] = jmpInstrCode
+
+	replacePrologue(orgPointer, newPrologue)	// OS-specific
 
 	C.flush_cache(C.uint64_t(uintptr(orgPointer)), C.size_t(instrLength))
 
@@ -48,8 +43,7 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 }
 
 func reset(ptr unsafe.Pointer, buf []byte) {
-	funcBegin := unsafe.Slice((*uint8)(ptr), instrLength)
-	copy(funcBegin, buf)
+	replacePrologue(ptr, buf)	// OS-specific
 
 	C.flush_cache(C.uint64_t(uintptr(ptr)), C.size_t(instrLength))
 }

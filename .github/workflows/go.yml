@@ -9,19 +9,16 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version-file: './go.mod'
 
     - name: Test examples
       run: go test -v -gcflags="all=-N -l" ./examples/...
 
-    - name: Test coverage
-      run: |
-        go test -v -gcflags="all=-N -l" -coverprofile=coverage.out ./.
-        go tool cover -func coverage.out | grep total: | awk '{print "Test coverage: " $3}'
+    - name: Unit tests
+      run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .

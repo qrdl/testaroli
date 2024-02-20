@@ -31,7 +31,7 @@ Typical use:
 ```
 // you want to test function foo() which in turn calls function bar(), so you
 // override function bar() to check whether it is called with correct argument
-// and to return preferdined result
+// and to return predefined result
 
 func foo() error {
     ...
