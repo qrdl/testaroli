@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/qrdl/testaroli)](https://goreportcard.com/report/github.com/qrdl/testaroli)
 ![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)
 ![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)
+![Coverage](https://gist.githubusercontent.com/qrdl/5bfca1854a183da5294ad00cb41ace31/raw/coverage.svg)
 
 Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
 It can be used only for unit testing and never in production.
