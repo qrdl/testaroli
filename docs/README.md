@@ -18,8 +18,7 @@ OS/arch combinations:
 |---------|-----------|-----------|
 | Linux   | Supported | Supported |
 | Windows | Supported | -         |
-| macOS   | Planned   | Planned   |
-
+| macOS   | Supported | Supported |
 
 ## Command line options
 

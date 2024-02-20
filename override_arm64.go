@@ -11,7 +11,7 @@ package testaroli
 #cgo CFLAGS: -g -Wall
 #include <stdint.h>
 void flush_cache(uint64_t addr, size_t len) {
-	uint32_t *target = (uint32_t *)addr;
+	char *target = (char *)addr;
 	__builtin___clear_cache(target, target + len);
 }
 */

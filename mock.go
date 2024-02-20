@@ -11,8 +11,6 @@ Currently supported OS/arch combinations:
   - Linux / x86_64
   - Linux / ARM64
   - Windows / x86_64
-
-Planned OS/arch combinations:
   - macOS / x86_64
   - macOS / ARM64
 
