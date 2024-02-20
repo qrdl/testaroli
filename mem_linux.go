@@ -7,15 +7,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func replacePrologue(ptr unsafe.Pointer, buf []byte) error {
+func replacePrologue(ptr unsafe.Pointer, buf []byte) {
 	err := makeMemRX(ptr, len(buf))
 	if err != nil {
-		return err
+		panic(err)
 	}
 	funcPrologue := unsafe.Slice((*uint8)(ptr), len(buf))
 	copy(funcPrologue, buf)
-
-	return nil
 }
 
 func makeMemRX(ptr unsafe.Pointer, size int) error {
