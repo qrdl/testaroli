@@ -21,3 +21,8 @@ func calcBoundaries(ptr unsafe.Pointer, size int) (unsafe.Pointer, uintptr) {
 
 	return areaStart, areaSize
 }
+
+func makePageWritable(start unsafe.Pointer, size uintptr) error {
+	page := unsafe.Slice((*uint8)(start), size)
+	return syscall.Mprotect(page, syscall.PROT_WRITE|syscall.PROT_READ|syscall.PROT_EXEC)
+}

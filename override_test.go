@@ -7,7 +7,6 @@ import (
 )
 
 type contextKey int
-
 const key = contextKey(1)
 
 func foo(i int) error {
