@@ -63,6 +63,7 @@ func TestNoEnoughFunds(t *testing.T) {
 }
 
 type contextKey int
+
 const key = contextKey(1)
 
 func TestNotCreditable(t *testing.T) {

@@ -19,7 +19,7 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 	jumpLocation := uintptr(mockPointer) - (uintptr(orgPointer) + jmpInstrLength)
 	binary.NativeEndian.PutUint32(newPrologue[1:], uint32(jumpLocation))
 
-	err := replacePrologue(orgPointer, newPrologue)	// OS-specific
+	err := replacePrologue(orgPointer, newPrologue) // OS-specific
 	if err != nil {
 		panic(err)
 	}
@@ -28,7 +28,7 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 }
 
 func reset(ptr unsafe.Pointer, buf []byte) {
-	err := replacePrologue(ptr, buf)	// OS-specific
+	err := replacePrologue(ptr, buf) // OS-specific
 	if err != nil {
 		panic(err)
 	}
