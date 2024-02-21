@@ -31,7 +31,7 @@ arguments, because Expectation check that function was called in order, anf if i
 call for overridden function, it restores the original state and overrides next function in the chain.
 */
 func Expectation() *Expect {
-	globalMock.t.Helper()
+	globalSeries.t.Helper()
 
 	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
@@ -39,28 +39,28 @@ func Expectation() *Expect {
 	}
 	entry := runtime.FuncForPC(pc).Entry()
 
-	if len(globalMock.expected) == 0 {
-		globalMock.t.Errorf("unexpected function call")
+	if len(globalSeries.expected) == 0 {
+		globalSeries.t.Errorf("unexpected function call")
 		return &Expect{}
 	}
-	e := globalMock.expected[0]
+	e := globalSeries.expected[0]
 
 	e.actCount++
 	if e.actCount == e.expCount && e.expCount != Unlimited {
 		reset(e.orgAddr, e.orgPrologue)
-		globalMock.expected = globalMock.expected[1:] // remove from expected chain
-		if len(globalMock.expected) > 0 {
+		globalSeries.expected = globalSeries.expected[1:] // remove from expected chain
+		if len(globalSeries.expected) > 0 {
 			// override next expected function
-			globalMock.expected[0].orgPrologue = override( // call arch-specific function
-				globalMock.expected[0].orgAddr,
-				globalMock.expected[0].mockAddr)
+			globalSeries.expected[0].orgPrologue = override( // call arch-specific function
+				globalSeries.expected[0].orgAddr,
+				globalSeries.expected[0].mockAddr)
 		}
 	}
 
 	// make sure we have called expected function
 	if uintptr(e.mockAddr) != entry {
 		// should never happen
-		globalMock.t.Errorf("unexpected function call (expected %s)", e.orgName)
+		globalSeries.t.Errorf("unexpected function call (expected %s)", e.orgName)
 		return &Expect{}
 	}
 
@@ -97,13 +97,13 @@ numbering - for array/slice elements, function arguments and run numbers, e.g. f
 call (if function was overridden for several calls) is called `run 0`
 */
 func (e Expect) CheckArgs(args ...any) {
-	globalMock.t.Helper()
+	globalSeries.t.Helper()
 
 	if len(args) != len(e.args) {
 		if len(e.args) == 0 {
-			globalMock.t.Errorf("no extected args set")
+			globalSeries.t.Errorf("no extected args set")
 		} else {
-			globalMock.t.Errorf("actual arg count %d doesn't match expected %d", len(args), len(e.args))
+			globalSeries.t.Errorf("actual arg count %d doesn't match expected %d", len(args), len(e.args))
 		}
 		return
 	}
@@ -115,13 +115,13 @@ func (e Expect) CheckArgs(args ...any) {
 			// no risk in calling IsNil here since we already established that type is nilable
 			if !expectedArg.IsNil() {
 				if e.expCount > 1 || e.expCount == Unlimited {
-					globalMock.t.Errorf(
+					globalSeries.t.Errorf(
 						"arg %d on the run %d actual value is nil while non-nil is expected",
 						i,
 						e.actCount-1) // 0-based
 					return
 				} else {
-					globalMock.t.Errorf(
+					globalSeries.t.Errorf(
 						"arg %d actual value is nil while non-nil is expected",
 						i)
 					return
@@ -137,12 +137,12 @@ func (e Expect) CheckArgs(args ...any) {
 					expectedArg)
 			}
 			if e.expCount > 1 || e.expCount == Unlimited {
-				globalMock.t.Errorf("arg %d on the run %d: %s",
+				globalSeries.t.Errorf("arg %d on the run %d: %s",
 					i+1,
 					e.actCount-1, // 0-based
 					msg)
 			} else {
-				globalMock.t.Errorf("arg %d: %s", i, msg)
+				globalSeries.t.Errorf("arg %d: %s", i, msg)
 			}
 			return
 		}
@@ -150,17 +150,17 @@ func (e Expect) CheckArgs(args ...any) {
 }
 
 /*
-Context returns [context.Context], passed to [New] function.
+Context returns [context.Context], passed to [NewSeries] function.
 */
 func (e Expect) Context() context.Context {
-	return globalMock.ctx
+	return globalSeries.ctx
 }
 
 /*
-Testing returns [testing.T], passed to [New] function.
+Testing returns [testing.T], passed to [NewSeries] function.
 */
 func (e Expect) Testing() *testing.T {
-	return globalMock.t
+	return globalSeries.t
 }
 
 // standard reflect.Value.Equal has several issues:
@@ -201,7 +201,7 @@ func equal(a, e reflect.Value) (bool, string) {
 		return a.String() == e.String(), ""
 	case reflect.Chan:
 		return a.Pointer() == e.Pointer(), ""
-	case reflect.Pointer, reflect.UnsafePointer: // my change
+	case reflect.Pointer, reflect.UnsafePointer:
 		if a.Pointer() == e.Pointer() {
 			return true, ""
 		}
@@ -241,7 +241,7 @@ func equal(a, e reflect.Value) (bool, string) {
 			}
 		}
 		return true, ""
-	case reflect.Map: // my change
+	case reflect.Map:
 		if a.Pointer() == e.Pointer() {
 			return true, ""
 		}
@@ -263,7 +263,7 @@ func equal(a, e reflect.Value) (bool, string) {
 	case reflect.Func:
 		return a.Pointer() == e.Pointer(), ""
 		// function can be equal only to itself
-	case reflect.Slice: // my change
+	case reflect.Slice:
 		if a.Pointer() == e.Pointer() {
 			return true, ""
 		}

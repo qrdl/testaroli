@@ -5,61 +5,61 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/qrdl/testaroli"
+	. "github.com/qrdl/testaroli"
 )
 
 func TestSuccess(t *testing.T) {
-	mock := testaroli.New(context.TODO(), t)
+	series := NewSeries(context.TODO(), t)
 
-	testaroli.Override(1, accStatus, func(acc string) AccStatus {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(accStatus, Once, func(acc string) AccStatus {
+		Expectation().CheckArgs(acc)
 		return AccStatusDebitable
 	})("1024")
 
-	testaroli.Override(1, accStatus, func(acc string) AccStatus {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(accStatus, Once, func(acc string) AccStatus {
+		Expectation().CheckArgs(acc)
 		return AccStatusCreditable
 	})("2048")
 
-	testaroli.Override(1, accBalance, func(acc string) float64 {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(accBalance, Once, func(acc string) float64 {
+		Expectation().CheckArgs(acc)
 		return 1000
 	})("1024")
 
-	testaroli.Override(1, debit, func(acc string, amount float64) {
-		testaroli.Expectation().CheckArgs(acc, amount)
+	Override(debit, Once, func(acc string, amount float64) {
+		Expectation().CheckArgs(acc, amount)
 	})("1024", 200)
 
-	testaroli.Override(1, credit, func(acc string, amount float64) {
-		testaroli.Expectation().CheckArgs(acc, amount)
+	Override(credit, Once, func(acc string, amount float64) {
+		Expectation().CheckArgs(acc, amount)
 	})("2048", 200)
 
 	err := transfer("1024", "2048", 200)
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestNoEnoughFunds(t *testing.T) {
-	mock := testaroli.New(context.TODO(), t)
+	series := NewSeries(context.TODO(), t)
 
-	testaroli.Override(1, accStatus, func(acc string) AccStatus {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(accStatus, Once, func(acc string) AccStatus {
+		Expectation().CheckArgs(acc)
 		return AccStatusDebitable
 	})("1024")
 
-	testaroli.Override(1, accStatus, func(acc string) AccStatus {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(accStatus, Once, func(acc string) AccStatus {
+		Expectation().CheckArgs(acc)
 		return AccStatusCreditable
 	})("2048")
 
-	testaroli.Override(1, accBalance, func(acc string) float64 {
-		testaroli.Expectation().Expect("1024").CheckArgs(acc)
+	Override(accBalance, Once, func(acc string) float64 {
+		Expectation().Expect("1024").CheckArgs(acc)
 		return 100
 	})
 
 	err := transfer("1024", "2048", 200)
 	testError(t, ErrNotEnoughFunds, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 type contextKey int
@@ -67,11 +67,11 @@ type contextKey int
 const key = contextKey(1)
 
 func TestNotCreditable(t *testing.T) {
-	mock := testaroli.New(context.WithValue(context.TODO(), key, "1024"), t)
-	defer func() { testError(t, nil, mock.ExpectationsWereMet()) }()
+	series := NewSeries(context.WithValue(context.TODO(), key, "1024"), t)
+	defer func() { testError(t, nil, series.ExpectationsWereMet()) }()
 
-	testaroli.Override(2, accStatus, func(acc string) AccStatus {
-		f := testaroli.Expectation()
+	Override(accStatus, 2, func(acc string) AccStatus {
+		f := Expectation()
 		if f.RunNumber() == 0 {
 			f.Expect(f.Context().Value(key).(string))
 		} else {

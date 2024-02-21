@@ -38,9 +38,9 @@ func qux(err error) error {
 }
 
 func TestSingleCall(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(2)
@@ -48,13 +48,13 @@ func TestSingleCall(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestSeveralCalls(t *testing.T) {
-	mock := New(context.WithValue(context.Background(), key, 100), t)
+	series := NewSeries(context.WithValue(context.Background(), key, 100), t)
 
-	Override(2, baz, func(i int) error {
+	Override(baz, Once, func(i int) error {
 		e := Expectation()
 		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
 		e.CheckArgs(i)
@@ -64,18 +64,18 @@ func TestSeveralCalls(t *testing.T) {
 	err := foo(102)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestSeveralCallsSeparateMocks(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 
-	Override(1, baz, func(i int) error {
+	Override(baz, Once, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(100)
 
-	Override(1, baz, func(i int) error {
+	Override(baz, Once, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(101)
@@ -83,14 +83,14 @@ func TestSeveralCallsSeparateMocks(t *testing.T) {
 	err := foo(102)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestWrongExpectedArg(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(Unlimited, bar, func(i int) error {
+	Override(bar, Unlimited, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(1)
@@ -98,16 +98,16 @@ func TestWrongExpectedArg(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestExpect(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		Expectation().Expect(2).CheckArgs(i)
 		return nil
 	})
@@ -115,14 +115,14 @@ func TestExpect(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestModifyContext(t *testing.T) {
 	val := 100
-	mock := New(context.WithValue(context.Background(), key, &val), t)
+	series := NewSeries(context.WithValue(context.Background(), key, &val), t)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		e := Expectation()
 		val := e.Context().Value(key).(*int)
 		t := e.Testing()
@@ -136,17 +136,17 @@ func TestModifyContext(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if *(mock.Context().Value(key).(*int)) != 42 {
+	testError(t, nil, series.ExpectationsWereMet())
+	if *(series.Context().Value(key).(*int)) != 42 {
 		t.Errorf("context not changed")
 	}
 }
 
 func TestWrongArgTypes(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		Expectation().Expect("foo").CheckArgs(i)
 		return nil
 	})
@@ -154,17 +154,17 @@ func TestWrongArgTypes(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestWrongArgCount(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		Expectation().Expect(1, "foo").CheckArgs(i)
 		return nil
 	})
@@ -172,17 +172,17 @@ func TestWrongArgCount(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestWrongArgCount2(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})
@@ -190,17 +190,17 @@ func TestWrongArgCount2(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestWrongCallCount(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(2, bar, func(i int) error {
+	Override(bar, 2, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(2)
@@ -208,15 +208,15 @@ func TestWrongCallCount(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	if mock.ExpectationsWereMet() == nil {
+	if series.ExpectationsWereMet() == nil {
 		t.Errorf("expected error")
 	}
 }
 
 func TestUnlimitedCallCount(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 
-	Override(Unlimited, bar, func(i int) error {
+	Override(bar, Unlimited, func(i int) error {
 		Expectation().CheckArgs(i)
 		return nil
 	})(2)
@@ -224,13 +224,13 @@ func TestUnlimitedCallCount(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestExpectNil(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 
-	Override(1, qux, func(err error) error {
+	Override(qux, Once, func(err error) error {
 		Expectation().CheckArgs(err)
 		return nil
 	})(nil)
@@ -238,14 +238,14 @@ func TestExpectNil(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestExpectNilFail(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(Unlimited, qux, func(err error) error {
+	Override(qux, Unlimited, func(err error) error {
 		Expectation().CheckArgs(err)
 		return nil
 	})(errors.New("dummy"))
@@ -253,17 +253,17 @@ func TestExpectNilFail(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestExpectNilFail2(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
-	Override(1, qux, func(err error) error {
+	Override(qux, Once, func(err error) error {
 		Expectation().CheckArgs(err)
 		return nil
 	})(errors.New("dummy"))
@@ -271,38 +271,38 @@ func TestExpectNilFail2(t *testing.T) {
 	err := foo(1)
 
 	testError(t, nil, err)
-	testError(t, nil, mock.ExpectationsWereMet())
-	if !mock.Testing().Failed() {
+	testError(t, nil, series.ExpectationsWereMet())
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestInvalidExpectationCall(t *testing.T) {
 	var t1 testing.T
-	mock := New(context.Background(), &t1)
+	series := NewSeries(context.Background(), &t1)
 
 	Expectation()
 
-	if !mock.Testing().Failed() {
+	if !series.Testing().Failed() {
 		t.Errorf("expected error")
 	}
 }
 
 func TestInvalidCount(t *testing.T) {
-	_ = New(context.Background(), t)
+	_ = NewSeries(context.Background(), t)
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
 		}
 	}()
 
-	Override(0, bar, func(i int) error {
+	Override(bar, 0, func(i int) error {
 		return nil
 	})
 }
 
 func TestInvalidOverride(t *testing.T) {
-	_ = New(context.Background(), t)
+	_ = NewSeries(context.Background(), t)
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
@@ -314,37 +314,37 @@ func TestInvalidOverride(t *testing.T) {
 }
 
 func TestOverrideAfterUnlimited(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
 		}
-		mock.ExpectationsWereMet()
+		series.ExpectationsWereMet()
 	}()
 
-	Override(Unlimited, bar, func(i int) error {
+	Override(bar, Unlimited, func(i int) error {
 		return nil
 	})
 
-	Override(1, baz, func(i int) error {
+	Override(baz, Once, func(i int) error {
 		return nil
 	})
 }
 
 func TestTwoMocks(t *testing.T) {
-	mock := New(context.Background(), t)
+	series := NewSeries(context.Background(), t)
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
 		}
-		mock.ExpectationsWereMet()
+		series.ExpectationsWereMet()
 	}()
 
-	Override(1, bar, func(i int) error {
+	Override(bar, Once, func(i int) error {
 		return nil
 	})
 
-	_ = New(context.Background(), t)
+	_ = NewSeries(context.Background(), t)
 }
 
 func testError(t *testing.T, expected, actual error) {

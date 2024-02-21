@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/qrdl/testaroli"
+	. "github.com/qrdl/testaroli"
 )
 
 func TestTransferOK(t *testing.T) {
@@ -14,42 +14,42 @@ func TestTransferOK(t *testing.T) {
 }
 
 func TestTransferDebitAccountNotOK(t *testing.T) {
-	mock := testaroli.New(context.TODO(), t)
+	series := NewSeries(context.TODO(), t)
 
-	testaroli.Override(1, Acc.IsDebitable, func(Acc) bool {
-		testaroli.Expectation()
+	Override(Acc.IsDebitable, Once, func(Acc) bool {
+		Expectation()
 		return false
 	})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrInvalid, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestTransferNotEnoughFunds(t *testing.T) {
-	mock := testaroli.New(context.TODO(), t)
+	series := NewSeries(context.TODO(), t)
 
-	testaroli.Override(1, Acc.Balance, func(acc Acc) float64 {
-		testaroli.Expectation().CheckArgs(acc)
+	Override(Acc.Balance, Once, func(acc Acc) float64 {
+		Expectation().CheckArgs(acc)
 		return acc.balance * -1
 	})(Acc{status: AccStatusDebitable | AccStatusCreditable, balance: 123.45, number: "1024"})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrNotEnoughFunds, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func TestTransferFail(t *testing.T) {
-	mock := testaroli.New(context.TODO(), t)
+	series := NewSeries(context.TODO(), t)
 
-	testaroli.Override(1, interAccountTransfer, func(from, to *Acc, amount float64) error {
-		testaroli.Expectation().Expect("1024", "2048", 2.0).CheckArgs(from.number, to.number, amount)
+	Override(interAccountTransfer, Once, func(from, to *Acc, amount float64) error {
+		Expectation().Expect("1024", "2048", 2.0).CheckArgs(from.number, to.number, amount)
 		return ErrInvalid
 	})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrInvalid, err)
-	testError(t, nil, mock.ExpectationsWereMet())
+	testError(t, nil, series.ExpectationsWereMet())
 }
 
 func testError(t *testing.T, expected, actual error) {

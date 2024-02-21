@@ -29,6 +29,8 @@ It is recommended to switch off compiler optimisations and disable function inli
 
 Typical use:
 ```
+import . "github.com/qrdl/testaroli"
+
 // you want to test function foo() which in turn calls function bar(), so you
 // override function bar() to check whether it is called with correct argument
 // and to return predefined result
@@ -46,11 +48,10 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
-    mock := testaroli.New(context.TODO(), t)
+    series := NewSeries(context.TODO(), t)
 
-    //                 v-- how many runs expected
-    testaroli.Override(1, bar, func(a int) error {
-        testaroli.Expectation().CheckArgs(a)  // <-- arg value checked here
+    Override(bar, Once, func(a int) error {
+        Expectation().CheckArgs(a)  // <-- arg value checked here
         return ErrInvalid
     })(42) // <-- expected argument value
 
@@ -58,7 +59,7 @@ func TestBarFailing(t *testing.T) {
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
     }
-    it err = mock.ExpectationsWereMet(); err != nil {
+    it err = series.ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
 }

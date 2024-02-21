@@ -40,11 +40,10 @@ Typical use:
 	}
 
 	func TestBarFailing(t *testing.T) {
-	    mock := testaroli.New(context.TODO(), t)
+	    series := NewSeries(context.TODO(), t)
 
-	    //                 v-- how many runs expected
-	    testaroli.Override(1, bar, func(a int) error {
-	        testaroli.Expectation().CheckArgs(a)  // <-- actual arg 'a' value compared with expected value 42
+	    Override(bar, Once, func(a int) error {
+	        Expectation().CheckArgs(a)  // <-- actual arg 'a' value compared with expected value 42
 	        return ErrInvalid
 	    })(42) // <-- expected argument value
 
@@ -52,7 +51,7 @@ Typical use:
 	    if !errors.Is(err, ErrInvalid) {
 	        t.Errorf("unexpected %v", err)
 	    }
-	    it err = mock.ExpectationsWereMet(); err != nil {
+	    it err = series.ExpectationsWereMet(); err != nil {
 	        t.Error(err)
 	    }
 	}
@@ -69,26 +68,27 @@ import (
 	"testing"
 )
 
+const Once = 1
 const Unlimited = -1
 
 /*
-Mock holds all information about expectations and allows to query final result with [Mock.ExpectationsWereMet].
-It is important to finalise the Mock with [Mock.ExpectationsWereMet], it means you need to call it at the end
+Series holds all information about expectations and allows to query final result with [Series.ExpectationsWereMet].
+It is important to finalise the Series with [Series.ExpectationsWereMet], it means you need to call it at the end
 of each test case to make sure all overridden functions are reset to their initial state and can be used
 by other test cases.
 */
-type Mock struct {
+type Series struct {
 	ctx      context.Context
 	t        *testing.T
 	expected []*Expect
 }
 
-var globalMock Mock
+var globalSeries Series
 
 /*
-New creates a new instance of Mock object.
+NewSeries creates a new instance of Series object.
 
-It takes a context, which later can be accessed inside the mock using [Mock.Context] or [Expect.Context],
+It takes a context, which later can be accessed inside the mock using [Series.Context] or [Expect.Context],
 and [testing.T] parameter to report detected errors.
 
 It is important to understand that although mock is defined within test function scope, in fact it is executed
@@ -97,26 +97,26 @@ function scope, it to pass them in this context. Accessing such variables direct
 
 Example of using context for passing data to the mock function:
 
-	mock := New(context.WithValue(context.TODO(), 1, "foo"), t)
+	mock := NewSeries(context.WithValue(context.TODO(), 1, "foo"), t)
 
-	testaroli.Override(1, foo, func(a string) {
+	Override(foo, Once, func(a string) {
 	    e := Expectation()
 	    e.Expect(e.Context().Value(1).(string)).CheckArgs(a)
 	})
 
-New panics if there is another non-finalized Mock object, because having several active Mock objects (each modifying
+NewSeries panics if there is another non-finalized Series object, because having several active Series objects (each modifying
 running binary) can lead to undefined behaviour.
 */
-func New(ctx context.Context, t *testing.T) *Mock {
-	if len(globalMock.expected) != 0 {
-		panic("Other Mock instance is active, cannot have two instances")
+func NewSeries(ctx context.Context, t *testing.T) *Series {
+	if len(globalSeries.expected) != 0 {
+		panic("Other Series instance is active, cannot have two instances")
 	}
-	globalMock = Mock{
+	globalSeries = Series{
 		ctx:      ctx,
 		t:        t,
 		expected: make([]*Expect, 0),
 	}
-	return &globalMock
+	return &globalSeries
 }
 
 /*
@@ -126,63 +126,63 @@ it doesn't check function arguments (it is responsibility of [Expect.CheckArgs])
 It is important to call ExpectationsWereMet at the end of test case to restore original state
 of overridden functions.
 */
-func (m *Mock) ExpectationsWereMet() error {
-	defer func() { m.expected = nil }()
-	if len(m.expected) != 0 {
-		if len(m.expected[0].orgPrologue) > 0 {
+func (s *Series) ExpectationsWereMet() error {
+	defer func() { s.expected = nil }()
+	if len(s.expected) != 0 {
+		if len(s.expected[0].orgPrologue) > 0 {
 			// reset last override
-			reset(m.expected[0].orgAddr, m.expected[0].orgPrologue)
+			reset(s.expected[0].orgAddr, s.expected[0].orgPrologue)
 		}
 		// special case - last expectation has unlimited number of repetitions, so it is not an error
-		if m.expected[0].expCount == Unlimited {
+		if s.expected[0].expCount == Unlimited {
 			return nil
 		}
-		return fmt.Errorf("some expectations weren't met - function %s was not called", m.expected[0].orgName)
+		return fmt.Errorf("some expectations weren't met - function %s was not called", s.expected[0].orgName)
 	}
 	return nil
 }
 
 /*
-Context returns [context.Context], passed to [New] function.
+Context returns [context.Context], passed to [NewSeries] function.
 */
-func (m Mock) Context() context.Context {
-	return m.ctx
+func (s Series) Context() context.Context {
+	return s.ctx
 }
 
 /*
-Testing returns [testing.T], passed to [New] function.
+Testing returns [testing.T], passed to [NewSeries] function.
 */
-func (m Mock) Testing() *testing.T {
-	return m.t
+func (s Series) Testing() *testing.T {
+	return s.t
 }
 
 /*
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,
 otherwise compilation error will be reported.
 It has <count> argument to specify how many calls to <org> functions are expected, which must be
-a positive number. After <org> function got called <count> times, the <org> function is no longer
-overridden and next override in the chain becomes effective.
+a positive number, or -1 for Unlimited. After <org> function got called <count> times, the <org>
+function is no longer overridden and next override in the chain becomes effective.
 [Unlimited] value for <count> means that there is no limit for number of <org> calls, and such override
 can only be the last one in the chain of overrides.
 
 Override returns function of generic type T that allows to set expected values for function call, like this:
 
-	Override(1, foo, func (a int, b string) { Expectation().CheckArgs(a, b) })(42, "bar")
+	Override(foo, Once, func (a int, b string) { Expectation().CheckArgs(a, b) })(42, "bar")
 
 It has the same effect as
 
-	Override(1, foo, func (a int, b string) { Expectation().Expect(42, "bar").CheckArgs(a, b) })
+	Override(foo, Once, func (a int, b string) { Expectation().Expect(42, "bar").CheckArgs(a, b) })
 
 but has a benefit of checking types for expected values at compile time, thanks to Go generics.
 
 You can override regular functions and methods, but not interface methods.
 */
-func Override[T any](count int, org, mock T) T {
+func Override[T any](org T, count int, mock T) T {
 	if reflect.ValueOf(org).Kind() != reflect.Func || reflect.ValueOf(mock).Kind() != reflect.Func {
 		panic("Override() can be called only for function/method")
 	}
 
-	if len(globalMock.expected) > 0 && globalMock.expected[len(globalMock.expected)-1].expCount == Unlimited {
+	if len(globalSeries.expected) > 0 && globalSeries.expected[len(globalSeries.expected)-1].expCount == Unlimited {
 		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
 	}
 
@@ -216,11 +216,11 @@ func Override[T any](count int, org, mock T) T {
 	fn := reflect.ValueOf(&expectedArgsFunc).Elem()
 	fn.Set(v)
 
-	if len(globalMock.expected) == 0 {
+	if len(globalSeries.expected) == 0 {
 		// first mock - change function prologue
 		expectedCall.orgPrologue = override(orgPointer, mockPointer) // call arch-specific function
 	}
-	globalMock.expected = append(globalMock.expected, &expectedCall)
+	globalSeries.expected = append(globalSeries.expected, &expectedCall)
 
 	return expectedArgsFunc
 }
