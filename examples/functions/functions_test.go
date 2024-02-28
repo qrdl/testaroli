@@ -9,57 +9,57 @@ import (
 )
 
 func TestSuccess(t *testing.T) {
-	series := NewSeries(context.TODO(), t)
+	ctx := TestingContext(t)
 
-	Override(accStatus, Once, func(acc string) AccStatus {
+	Override(ctx, accStatus, Once, func(acc string) AccStatus {
 		Expectation().CheckArgs(acc)
 		return AccStatusDebitable
 	})("1024")
 
-	Override(accStatus, Once, func(acc string) AccStatus {
+	Override(ctx, accStatus, Once, func(acc string) AccStatus {
 		Expectation().CheckArgs(acc)
 		return AccStatusCreditable
 	})("2048")
 
-	Override(accBalance, Once, func(acc string) float64 {
+	Override(ctx, accBalance, Once, func(acc string) float64 {
 		Expectation().CheckArgs(acc)
 		return 1000
 	})("1024")
 
-	Override(debit, Once, func(acc string, amount float64) {
+	Override(ctx, debit, Once, func(acc string, amount float64) {
 		Expectation().CheckArgs(acc, amount)
 	})("1024", 200)
 
-	Override(credit, Once, func(acc string, amount float64) {
+	Override(ctx, credit, Once, func(acc string, amount float64) {
 		Expectation().CheckArgs(acc, amount)
 	})("2048", 200)
 
 	err := transfer("1024", "2048", 200)
 	testError(t, nil, err)
-	testError(t, nil, series.ExpectationsWereMet())
+	testError(t, nil, ExpectationsWereMet())
 }
 
-func TestNoEnoughFunds(t *testing.T) {
-	series := NewSeries(context.TODO(), t)
+func TestNotEnoughFunds(t *testing.T) {
+	ctx := TestingContext(t)
 
-	Override(accStatus, Once, func(acc string) AccStatus {
+	Override(ctx, accStatus, Once, func(acc string) AccStatus {
 		Expectation().CheckArgs(acc)
 		return AccStatusDebitable
 	})("1024")
 
-	Override(accStatus, Once, func(acc string) AccStatus {
+	Override(ctx, accStatus, Once, func(acc string) AccStatus {
 		Expectation().CheckArgs(acc)
 		return AccStatusCreditable
 	})("2048")
 
-	Override(accBalance, Once, func(acc string) float64 {
+	Override(ctx, accBalance, Once, func(acc string) float64 {
 		Expectation().Expect("1024").CheckArgs(acc)
 		return 100
 	})
 
 	err := transfer("1024", "2048", 200)
 	testError(t, ErrNotEnoughFunds, err)
-	testError(t, nil, series.ExpectationsWereMet())
+	testError(t, nil, ExpectationsWereMet())
 }
 
 type contextKey int
@@ -67,10 +67,10 @@ type contextKey int
 const key = contextKey(1)
 
 func TestNotCreditable(t *testing.T) {
-	series := NewSeries(context.WithValue(context.TODO(), key, "1024"), t)
-	defer func() { testError(t, nil, series.ExpectationsWereMet()) }()
+	ctx := context.WithValue(TestingContext(t), key, "1024")
+	defer func() { testError(t, nil, ExpectationsWereMet()) }()
 
-	Override(accStatus, 2, func(acc string) AccStatus {
+	Override(ctx, accStatus, 2, func(acc string) AccStatus {
 		f := Expectation()
 		if f.RunNumber() == 0 {
 			f.Expect(f.Context().Value(key).(string))

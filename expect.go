@@ -13,6 +13,7 @@ import (
 Expect holds information about overridden function and has methods to set and check arguments.
 */
 type Expect struct {
+	ctx         context.Context
 	expCount    int
 	actCount    int
 	mockAddr    unsafe.Pointer
@@ -27,40 +28,40 @@ Expectation can be called only from mock, it checks whether function call was ex
 and return matching expectation.
 
 It is important to always call Expectation from the mock function, even if you don't want to check
-arguments, because Expectation check that function was called in order, anf if it was the last expected
+arguments, because Expectation check that function was called in order, and if it was the last expected
 call for overridden function, it restores the original state and overrides next function in the chain.
 */
 func Expectation() *Expect {
-	globalSeries.t.Helper()
-
 	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
 		panic("cannot identify calling function")
 	}
 	entry := runtime.FuncForPC(pc).Entry()
 
-	if len(globalSeries.expected) == 0 {
-		globalSeries.t.Errorf("unexpected function call")
-		return &Expect{}
+	if len(expectations) == 0 {
+		panic("unexpected function call")
 	}
-	e := globalSeries.expected[0]
+
+	e := expectations[0]
+	t := e.Testing()
+	t.Helper()
 
 	e.actCount++
 	if e.actCount == e.expCount && e.expCount != Unlimited {
 		reset(e.orgAddr, e.orgPrologue)
-		globalSeries.expected = globalSeries.expected[1:] // remove from expected chain
-		if len(globalSeries.expected) > 0 {
+		expectations = expectations[1:] // remove from expected chain
+		if len(expectations) > 0 {
 			// override next expected function
-			globalSeries.expected[0].orgPrologue = override( // call arch-specific function
-				globalSeries.expected[0].orgAddr,
-				globalSeries.expected[0].mockAddr)
+			expectations[0].orgPrologue = override( // call arch-specific function
+				expectations[0].orgAddr,
+				expectations[0].mockAddr)
 		}
 	}
 
 	// make sure we have called expected function
 	if uintptr(e.mockAddr) != entry {
 		// should never happen
-		globalSeries.t.Errorf("unexpected function call (expected %s)", e.orgName)
+		t.Errorf("unexpected function call (expected %s)", e.orgName)
 		return &Expect{}
 	}
 
@@ -97,13 +98,15 @@ numbering - for array/slice elements, function arguments and run numbers, e.g. f
 call (if function was overridden for several calls) is called `run 0`
 */
 func (e Expect) CheckArgs(args ...any) {
-	globalSeries.t.Helper()
+
+	t := e.Testing()
+	t.Helper()
 
 	if len(args) != len(e.args) {
 		if len(e.args) == 0 {
-			globalSeries.t.Errorf("no extected args set")
+			t.Errorf("no extected args set")
 		} else {
-			globalSeries.t.Errorf("actual arg count %d doesn't match expected %d", len(args), len(e.args))
+			t.Errorf("actual arg count %d doesn't match expected %d", len(args), len(e.args))
 		}
 		return
 	}
@@ -115,13 +118,13 @@ func (e Expect) CheckArgs(args ...any) {
 			// no risk in calling IsNil here since we already established that type is nilable
 			if !expectedArg.IsNil() {
 				if e.expCount > 1 || e.expCount == Unlimited {
-					globalSeries.t.Errorf(
+					t.Errorf(
 						"arg %d on the run %d actual value is nil while non-nil is expected",
 						i,
 						e.actCount-1) // 0-based
 					return
 				} else {
-					globalSeries.t.Errorf(
+					t.Errorf(
 						"arg %d actual value is nil while non-nil is expected",
 						i)
 					return
@@ -137,12 +140,12 @@ func (e Expect) CheckArgs(args ...any) {
 					expectedArg)
 			}
 			if e.expCount > 1 || e.expCount == Unlimited {
-				globalSeries.t.Errorf("arg %d on the run %d: %s",
+				t.Errorf("arg %d on the run %d: %s",
 					i+1,
 					e.actCount-1, // 0-based
 					msg)
 			} else {
-				globalSeries.t.Errorf("arg %d: %s", i, msg)
+				t.Errorf("arg %d: %s", i, msg)
 			}
 			return
 		}
@@ -150,141 +153,15 @@ func (e Expect) CheckArgs(args ...any) {
 }
 
 /*
-Context returns [context.Context], passed to [NewSeries] function.
+Context returns [context.Context], passed to [Override] function.
 */
 func (e Expect) Context() context.Context {
-	return globalSeries.ctx
+	return e.ctx
 }
 
 /*
-Testing returns [testing.T], passed to [NewSeries] function.
+Testing returns [testing.T], embedded into the context, passed to [Override] function.
 */
 func (e Expect) Testing() *testing.T {
-	return globalSeries.t
-}
-
-// standard reflect.Value.Equal has several issues:
-// - it compares pointers only as addresses
-// - it doesn't compare maps
-// - it doesn't compare slices
-// - it doesn't explain what exactly has failed
-// - it panics
-// so I've rolled my own, based on reflect's implementation
-func equal(a, e reflect.Value) (bool, string) {
-	if a.Kind() == reflect.Interface {
-		a = a.Elem()
-	}
-	if e.Kind() == reflect.Interface {
-		e = e.Elem()
-	}
-
-	if !a.IsValid() || !e.IsValid() {
-		return a.IsValid() == e.IsValid(), "cannot compare invalid value with valid one"
-	}
-
-	if a.Kind() != e.Kind() || a.Type() != e.Type() {
-		return false, fmt.Sprintf("actual type '%s' differs from expected '%s'", a.Type(), e.Type())
-	}
-
-	switch a.Kind() {
-	case reflect.Bool:
-		return a.Bool() == e.Bool(), ""
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return a.Int() == e.Int(), ""
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return a.Uint() == e.Uint(), ""
-	case reflect.Float32, reflect.Float64:
-		return a.Float() == e.Float(), ""
-	case reflect.Complex64, reflect.Complex128:
-		return a.Complex() == e.Complex(), ""
-	case reflect.String:
-		return a.String() == e.String(), ""
-	case reflect.Chan:
-		return a.Pointer() == e.Pointer(), ""
-	case reflect.Pointer, reflect.UnsafePointer:
-		if a.Pointer() == e.Pointer() {
-			return true, ""
-		}
-		res, str := equal(reflect.Indirect(a), reflect.Indirect(e))
-		if !res && str == "" {
-			str = fmt.Sprintf("actual value '%v' differs from expected '%v'", reflect.Indirect(a), reflect.Indirect(e))
-		}
-		return res, str
-	case reflect.Array:
-		// u and v have the same type so they have the same length
-		vl := a.Len()
-		if vl == 0 {
-			return true, ""
-		}
-		for i := 0; i < vl; i++ {
-			res, str := equal(a.Index(i), e.Index(i))
-			if !res {
-				if str == "" {
-					str = fmt.Sprintf("actual value '%v' differs from expected '%v'",
-						a.Index(i), e.Index(i))
-				}
-				return false, fmt.Sprintf("array elem %d: %s", i, str)
-			}
-		}
-		return true, ""
-	case reflect.Struct:
-		// u and v have the same type so they have the same fields
-		nf := a.NumField()
-		for i := 0; i < nf; i++ {
-			res, str := equal(a.Field(i), e.Field(i))
-			if !res {
-				if str == "" {
-					str = fmt.Sprintf("actual value '%v' differs from expected '%v'",
-						a.Field(i), e.Field(i))
-				}
-				return false, fmt.Sprintf("struct field '%s': %s", a.Type().Field(i).Name, str)
-			}
-		}
-		return true, ""
-	case reflect.Map:
-		if a.Pointer() == e.Pointer() {
-			return true, ""
-		}
-		keys := a.MapKeys()
-		if len(keys) != len(e.MapKeys()) {
-			return false, "map lengths differ"
-		}
-		for _, k := range keys {
-			res, str := equal(a.MapIndex(k), e.MapIndex(k))
-			if !res {
-				if str == "" {
-					str = fmt.Sprintf("actual value '%v' differs from expected '%v'",
-						a.MapIndex(k), e.MapIndex(k))
-				}
-				return false, fmt.Sprintf("map value for key '%v': %s", k, str)
-			}
-		}
-		return true, ""
-	case reflect.Func:
-		return a.Pointer() == e.Pointer(), ""
-		// function can be equal only to itself
-	case reflect.Slice:
-		if a.Pointer() == e.Pointer() {
-			return true, ""
-		}
-		vl := a.Len()
-		if vl != e.Len() {
-			return false, "slice lengths differ"
-		}
-		if vl == 0 {
-			return true, ""
-		}
-		for i := 0; i < vl; i++ {
-			res, str := equal(a.Index(i), e.Index(i))
-			if !res {
-				if str == "" {
-					str = fmt.Sprintf("actual value '%v' differs from expected '%v'",
-						a.Index(i), e.Index(i))
-				}
-				return false, fmt.Sprintf("slice elem %d: %s", i, str)
-			}
-		}
-		return true, ""
-	}
-	return false, "invalid variable Kind" // should never happen
+	return Testing(e.ctx)
 }

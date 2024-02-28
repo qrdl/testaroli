@@ -25,7 +25,7 @@ OS/arch combinations:
 
 It is recommended to switch off compiler optimisations and disable function inlining using `-gcflags="all=-N -l"` CLI option when running tests, like this:
 
-`go test -gcflags="all=-N -l" [<path>]`
+`go test -gcflags="all=-N -l" ./...`
 
 Typical use:
 ```
@@ -48,9 +48,7 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
-    series := NewSeries(context.TODO(), t)
-
-    Override(bar, Once, func(a int) error {
+    Override(TestingContext(t), bar, Once, func(a int) error {
         Expectation().CheckArgs(a)  // <-- arg value checked here
         return ErrInvalid
     })(42) // <-- expected argument value
@@ -59,10 +57,10 @@ func TestBarFailing(t *testing.T) {
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
     }
-    it err = series.ExpectationsWereMet(); err != nil {
+    it err = ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
 }
 ```
 
-See more advanced usage examples in [examples](examples) directory.
+See more advanced usage examples in [examples](../examples) directory.

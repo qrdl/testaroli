@@ -40,9 +40,7 @@ Typical use:
 	}
 
 	func TestBarFailing(t *testing.T) {
-	    series := NewSeries(context.TODO(), t)
-
-	    Override(bar, Once, func(a int) error {
+	    Override(TestingContext(t), bar, Once, func(a int) error {
 	        Expectation().CheckArgs(a)  // <-- actual arg 'a' value compared with expected value 42
 	        return ErrInvalid
 	    })(42) // <-- expected argument value
@@ -51,7 +49,7 @@ Typical use:
 	    if !errors.Is(err, ErrInvalid) {
 	        t.Errorf("unexpected %v", err)
 	    }
-	    it err = series.ExpectationsWereMet(); err != nil {
+	    it err = ExpectationsWereMet(); err != nil {
 	        t.Error(err)
 	    }
 	}
@@ -68,93 +66,15 @@ import (
 	"testing"
 )
 
-const Once = 1
-const Unlimited = -1
+type contextKey int
 
-/*
-Series holds all information about expectations and allows to query final result with [Series.ExpectationsWereMet].
-It is important to finalise the Series with [Series.ExpectationsWereMet], it means you need to call it at the end
-of each test case to make sure all overridden functions are reset to their initial state and can be used
-by other test cases.
-*/
-type Series struct {
-	ctx      context.Context
-	t        *testing.T
-	expected []*Expect
-}
+const (
+	Once       = 1
+	Unlimited  = -1
+	testingKey = contextKey(1)
+)
 
-var globalSeries Series
-
-/*
-NewSeries creates a new instance of Series object.
-
-It takes a context, which later can be accessed inside the mock using [Series.Context] or [Expect.Context],
-and [testing.T] parameter to report detected errors.
-
-It is important to understand that although mock is defined within test function scope, in fact it is executed
-in the scope of overridden function, it means that the only way for mock to access variables, defined in the test
-function scope, it to pass them in this context. Accessing such variables directly results in Undefined Behaviour.
-
-Example of using context for passing data to the mock function:
-
-	mock := NewSeries(context.WithValue(context.TODO(), 1, "foo"), t)
-
-	Override(foo, Once, func(a string) {
-	    e := Expectation()
-	    e.Expect(e.Context().Value(1).(string)).CheckArgs(a)
-	})
-
-NewSeries panics if there is another non-finalized Series object, because having several active Series objects (each modifying
-running binary) can lead to undefined behaviour.
-*/
-func NewSeries(ctx context.Context, t *testing.T) *Series {
-	if len(globalSeries.expected) != 0 {
-		panic("Other Series instance is active, cannot have two instances")
-	}
-	globalSeries = Series{
-		ctx:      ctx,
-		t:        t,
-		expected: make([]*Expect, 0),
-	}
-	return &globalSeries
-}
-
-/*
-ExpectationsWereMet checks that all expected overridden functions were called.
-It doesn't check correct order of functions called (it is responsibility of [Expectation]) and
-it doesn't check function arguments (it is responsibility of [Expect.CheckArgs]).
-It is important to call ExpectationsWereMet at the end of test case to restore original state
-of overridden functions.
-*/
-func (s *Series) ExpectationsWereMet() error {
-	defer func() { s.expected = nil }()
-	if len(s.expected) != 0 {
-		if len(s.expected[0].orgPrologue) > 0 {
-			// reset last override
-			reset(s.expected[0].orgAddr, s.expected[0].orgPrologue)
-		}
-		// special case - last expectation has unlimited number of repetitions, so it is not an error
-		if s.expected[0].expCount == Unlimited {
-			return nil
-		}
-		return fmt.Errorf("some expectations weren't met - function %s was not called", s.expected[0].orgName)
-	}
-	return nil
-}
-
-/*
-Context returns [context.Context], passed to [NewSeries] function.
-*/
-func (s Series) Context() context.Context {
-	return s.ctx
-}
-
-/*
-Testing returns [testing.T], passed to [NewSeries] function.
-*/
-func (s Series) Testing() *testing.T {
-	return s.t
-}
+var expectations []*Expect
 
 /*
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,
@@ -167,22 +87,41 @@ can only be the last one in the chain of overrides.
 
 Override returns function of generic type T that allows to set expected values for function call, like this:
 
-	Override(foo, Once, func (a int, b string) { Expectation().CheckArgs(a, b) })(42, "bar")
+	Override(ctx, foo, Once, func (a int, b string) {
+		Expectation().CheckArgs(a, b)
+	})(42, "bar")
 
-It has the same effect as
+has the same effect as
 
-	Override(foo, Once, func (a int, b string) { Expectation().Expect(42, "bar").CheckArgs(a, b) })
+	Override(ctx, foo, Once, func (a int, b string) {
+		Expectation().Expect(42, "bar").CheckArgs(a, b)
+	})
 
 but has a benefit of checking types for expected values at compile time, thanks to Go generics.
 
+Override takes a context as a first argument, and this context must be created with
+[TestingContext] or derived from the context, returned by [TestingContext]. This function will panic
+if it is passed invalid context.
+It is important to remember that mock function is executed in the scope of original function, therefore
+variables and functions, declared within test case scope, are not accessible, although compiler considers
+the code valid. To overcome this limitation pass the variable in the context, in this case you can obtain
+the variable from the context from within mock function, for example:
+
+		val := 100
+	    Override(context.WithValue(TestingContext(t), key, val), bar, Once, func() {
+			// using 'val' here leads to runtime errors
+			val := Expectation().Context().Value(key).(int)
+			// now 'val' is ok to use and contains te value 100
+		})
+
 You can override regular functions and methods, but not interface methods.
 */
-func Override[T any](org T, count int, mock T) T {
+func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	if reflect.ValueOf(org).Kind() != reflect.Func || reflect.ValueOf(mock).Kind() != reflect.Func {
 		panic("Override() can be called only for function/method")
 	}
 
-	if len(globalSeries.expected) > 0 && globalSeries.expected[len(globalSeries.expected)-1].expCount == Unlimited {
+	if len(expectations) > 0 && expectations[len(expectations)-1].expCount == Unlimited {
 		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
 	}
 
@@ -190,10 +129,13 @@ func Override[T any](org T, count int, mock T) T {
 		panic("Invalid count: must be a positive number or Unlimited")
 	}
 
+	Testing(ctx) // just to make sure the context is correct
+
 	orgPointer := reflect.ValueOf(org).UnsafePointer()
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
 
 	expectedCall := Expect{
+		ctx:      ctx,
 		expCount: count,
 		mockAddr: mockPointer,
 		orgAddr:  orgPointer,
@@ -216,11 +158,57 @@ func Override[T any](org T, count int, mock T) T {
 	fn := reflect.ValueOf(&expectedArgsFunc).Elem()
 	fn.Set(v)
 
-	if len(globalSeries.expected) == 0 {
+	if len(expectations) == 0 {
 		// first mock - change function prologue
 		expectedCall.orgPrologue = override(orgPointer, mockPointer) // call arch-specific function
 	}
-	globalSeries.expected = append(globalSeries.expected, &expectedCall)
+	expectations = append(expectations, &expectedCall)
 
 	return expectedArgsFunc
+}
+
+/*
+ExpectationsWereMet checks that all expected overridden functions were called.
+It doesn't check correct order of functions called (it is responsibility of [Expectation]) and
+it doesn't check function arguments (it is responsibility of [Expect.CheckArgs]).
+It is important to call ExpectationsWereMet at the end of test case to restore original state
+of overridden functions.
+*/
+func ExpectationsWereMet() error {
+	defer func() { expectations = nil }()
+
+	if len(expectations) != 0 {
+		if len(expectations[0].orgPrologue) > 0 {
+			// reset last override
+			reset(expectations[0].orgAddr, expectations[0].orgPrologue)
+		}
+		// special case - last expectation has unlimited number of repetitions, so it is not an error
+		if expectations[0].expCount == Unlimited {
+			return nil
+		}
+		return fmt.Errorf("some expectations weren't met - function %s was not called",
+			expectations[0].orgName)
+	}
+
+	return nil
+}
+
+/*
+TestingContext returns the context with embedded [testing.T].
+*/
+func TestingContext(t *testing.T) context.Context {
+	return context.WithValue(context.Background(), testingKey, t)
+}
+
+/*
+Testing returns the [testing.T], embedded into the context with [TestingContext].
+*/
+func Testing(ctx context.Context) *testing.T {
+	defer func() {
+		if r := recover(); r != nil {
+			panic("This context wasn't created with TestingContext()")
+		}
+	}()
+
+	return ctx.Value(testingKey).(*testing.T)
 }

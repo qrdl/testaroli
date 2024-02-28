@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -14,42 +13,36 @@ func TestTransferOK(t *testing.T) {
 }
 
 func TestTransferDebitAccountNotOK(t *testing.T) {
-	series := NewSeries(context.TODO(), t)
-
-	Override(Acc.IsDebitable, Once, func(Acc) bool {
+	Override(TestingContext(t), Acc.IsDebitable, Once, func(Acc) bool {
 		Expectation()
 		return false
 	})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrInvalid, err)
-	testError(t, nil, series.ExpectationsWereMet())
+	testError(t, nil, ExpectationsWereMet())
 }
 
 func TestTransferNotEnoughFunds(t *testing.T) {
-	series := NewSeries(context.TODO(), t)
-
-	Override(Acc.Balance, Once, func(acc Acc) float64 {
+	Override(TestingContext(t), Acc.Balance, Once, func(acc Acc) float64 {
 		Expectation().CheckArgs(acc)
 		return acc.balance * -1
 	})(Acc{status: AccStatusDebitable | AccStatusCreditable, balance: 123.45, number: "1024"})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrNotEnoughFunds, err)
-	testError(t, nil, series.ExpectationsWereMet())
+	testError(t, nil, ExpectationsWereMet())
 }
 
 func TestTransferFail(t *testing.T) {
-	series := NewSeries(context.TODO(), t)
-
-	Override(interAccountTransfer, Once, func(from, to *Acc, amount float64) error {
+	Override(TestingContext(t), interAccountTransfer, Once, func(from, to *Acc, amount float64) error {
 		Expectation().Expect("1024", "2048", 2.0).CheckArgs(from.number, to.number, amount)
 		return ErrInvalid
 	})
 
 	err := Transfer("1024", "2048", 2.0)
 	testError(t, ErrInvalid, err)
-	testError(t, nil, series.ExpectationsWereMet())
+	testError(t, nil, ExpectationsWereMet())
 }
 
 func testError(t *testing.T, expected, actual error) {
