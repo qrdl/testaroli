@@ -25,10 +25,12 @@ OS/arch combinations:
 
 It is recommended to switch off compiler optimisations and disable function inlining using `-gcflags="all=-N -l"` CLI option when running tests, like this:
 
-`go test -gcflags="all=-N -l" [<path>]`
+`go test -gcflags="all=-N -l" ./...`
 
 Typical use:
 ```
+import . "github.com/qrdl/testaroli"
+
 // you want to test function foo() which in turn calls function bar(), so you
 // override function bar() to check whether it is called with correct argument
 // and to return predefined result
@@ -46,11 +48,8 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
-    mock := testaroli.New(context.TODO(), t)
-
-    //                 v-- how many runs expected
-    testaroli.Override(1, bar, func(a int) error {
-        testaroli.Expectation().CheckArgs(a)  // <-- arg value checked here
+    Override(TestingContext(t), bar, Once, func(a int) error {
+        Expectation().CheckArgs(a)  // <-- arg value checked here
         return ErrInvalid
     })(42) // <-- expected argument value
 
@@ -58,10 +57,10 @@ func TestBarFailing(t *testing.T) {
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
     }
-    it err = mock.ExpectationsWereMet(); err != nil {
+    it err = ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
 }
 ```
 
-See more advanced usage examples in [examples](examples) directory.
+See more advanced usage examples in [examples](../examples) directory.

@@ -25,8 +25,8 @@ int make_text_writable() {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
 
-    // get info about TEXT
-    text_segment = 0x100000000; // TEXT segment expected initial address
+    // TEXT segment
+    text_segment = 0x100000000; // segment expected initial address
     mach_vm_size_t text_size = 0;
     vm_region_basic_info_data_64_t info;
     mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT_64;
@@ -34,7 +34,7 @@ int make_text_writable() {
     kern_return_t ret = mach_vm_region(task,  &text_segment, &text_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
     CHECK_ERR("mach_vm_region");
 
-    // get info about DATA segment
+    // DATA_CONST segment
     mach_vm_address_t data_segment = text_segment + text_size;  // right after TEXT segment
     mach_vm_size_t data_size = 0;
     ret = mach_vm_region(task,  &data_segment, &data_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
@@ -44,21 +44,20 @@ int make_text_writable() {
         return 1;
     }
 
-    // get info about DATA2 segment
+    // DATA segment
     mach_vm_address_t data2_segment = data_segment + data_size;  // right after TEXT segment
     mach_vm_size_t data2_size = 0;
     ret = mach_vm_region(task,  &data2_segment, &data2_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
     CHECK_ERR("mach_vm_region");
 
-    // allocate new VM segment of the same size
-    // Here I assume that data segment always immediately follows TEXT segment
+    // allocate new VM segment of the size of TEXT, DATA_CONST and DATA segments combined
     mach_vm_size_t temp_size = text_size + data_size + data2_size;
     ret = mach_vm_allocate(task, &temp_segment, temp_size, VM_FLAGS_ANYWHERE);
     CHECK_ERR("mach_vm_allocate");
     ret = mach_vm_protect(task, temp_segment, temp_size, 0, VM_PROT_READ|VM_PROT_WRITE);
     CHECK_ERR("mach_vm_protect");
 
-    // copy TEXT and DATA segment to temp segment (to keep relative references to vars in DATA segment correct)
+    // copy TEXT, DATA_CONST and DATA segments to temp segment (to keep relative references to vars in DATA_CONST and DATA segments correct)
     ret = mach_vm_copy(task, text_segment, text_size, temp_segment);
     CHECK_ERR("mach_vm_copy");
     ret = mach_vm_copy(task, data_segment, data_size, temp_segment+text_size);
@@ -94,6 +93,7 @@ int overwrite_prolog(uint64_t func_addr, uint64_t buf, uint64_t bufsize) {
 // this function is executed in temp segment
 // it destroys original TEXT segment, creates new one in the same place and copies
 // the original TEXT content from temp segment to new TEXT
+// this function must not update any globals because TEMP segment is not writable!
 static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, mach_vm_address_t tmp) {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
@@ -129,6 +129,7 @@ static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, ma
 }
 
 // this function is executed in TEMP segment, but addresses must be in TEXT segment
+// this function must not update any globals because TEMP segment is not writable!
 static int overwrite(mach_vm_address_t src, mach_vm_size_t size, mach_vm_address_t dest) {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
@@ -145,6 +146,7 @@ static int overwrite(mach_vm_address_t src, mach_vm_size_t size, mach_vm_address
     return 0;
 }
 
+// this function must not update any globals because TEMP segment is not writable!
 static int suspend_other_threads() {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
@@ -154,7 +156,7 @@ static int suspend_other_threads() {
     int ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");
 
-    // skip thread 0  which is the current one
+    // skip thread 0 which is the current one
     for (int i = 1; i < thread_count; i++) {
         ret = thread_suspend(threads[i]);
         if (ret != 0)
@@ -164,6 +166,7 @@ static int suspend_other_threads() {
     return 0;
 }
 
+// this function must not update any globals because TEMP segment is not writable!
 static int resume_other_threads() {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
@@ -173,7 +176,7 @@ static int resume_other_threads() {
     int ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");
 
-    // skip thread 0  which is the current one
+    // skip thread 0 which is the current one
     for (int i = 1; i < thread_count; i++) {
         thread_resume(threads[i]);
         if (ret != 0)
@@ -192,7 +195,7 @@ import (
 
 func init() {
 	// make sure no other goroutines are executed within this thread, so
-	// suspending all other threads effectively stops all auxillary goroutines
+	// suspending all other threads effectively stops all auxiliary goroutines
 	runtime.LockOSThread()
 	// re-create TEXT segment with max protection rwx
 	res := C.make_text_writable()
