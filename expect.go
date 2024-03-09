@@ -46,6 +46,12 @@ func Expectation() *Expect {
 	t := e.Testing()
 	t.Helper()
 
+	// make sure we have called expected function
+	if uintptr(e.mockAddr) != entry {
+		t.Errorf("unexpected function call (expected %s)", e.orgName) // should never happen
+		return &Expect{}
+	}
+
 	e.actCount++
 	if e.actCount == e.expCount && e.expCount != Unlimited {
 		reset(e.orgAddr, e.orgPrologue)
@@ -56,13 +62,6 @@ func Expectation() *Expect {
 				expectations[0].orgAddr,
 				expectations[0].mockAddr)
 		}
-	}
-
-	// make sure we have called expected function
-	if uintptr(e.mockAddr) != entry {
-		// should never happen
-		t.Errorf("unexpected function call (expected %s)", e.orgName)
-		return &Expect{}
 	}
 
 	return e

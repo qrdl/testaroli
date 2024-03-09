@@ -206,7 +206,7 @@ Testing returns the [testing.T], embedded into the context with [TestingContext]
 func Testing(ctx context.Context) *testing.T {
 	defer func() {
 		if r := recover(); r != nil {
-			panic("This context wasn't created with TestingContext()")
+			panic("Context wasn't created with TestingContext()")
 		}
 	}()
 
