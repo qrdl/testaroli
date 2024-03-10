@@ -76,7 +76,6 @@ first argument of the mock function.
 	        t.Error(err)
 	    }
 	}
-
 */
 package testaroli
 
@@ -136,6 +135,7 @@ and it works like
 
 	Override(ctx, foo, Once, func (a int, b string) {
 	    Expectation().Expect(42, "bar").CheckArgs(a, b)
+
 	})
 
 but has a benefit of checking types for expected values at compile time, thanks to Go generics.
