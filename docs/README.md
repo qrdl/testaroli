@@ -63,4 +63,29 @@ func TestBarFailing(t *testing.T) {
 }
 ```
 
+It is also possible to override functions and methods in other packages, including ones
+from standard library, like in example below. Please note that method receiver becomes the
+first argument of the mock function.
+
+```
+func TestFoo(t *testing.T) {
+    Override(TestingContext(t), (*os.File).Read, Once, func(f *os.File, b []byte) (n int, err error) {
+        Expectation()
+        copy(b, []byte("foo"))
+        return 3, nil
+    })
+
+    f, _ := os.Open("test.file")
+    defer f.Close()
+    buf := make([]byte, 3)
+    n, _ := f.Read(buf)
+    if n != 3 || string(buf) != "foo" {
+        t.Errorf("unexpected file content %s", string(buf))
+    }
+    if err = ExpectationsWereMet(); err != nil {
+        t.Error(err)
+    }
+}
+```
+
 See more advanced usage examples in [examples](../examples) directory.

@@ -24,11 +24,11 @@ type Expect struct {
 }
 
 /*
-Expectation can be called only from mock, it checks whether function call was expected at this point,
+Expectation can be called only from inside the mock, it checks whether function call was expected at this point,
 and return matching expectation.
 
 It is important to always call Expectation from the mock function, even if you don't want to check
-arguments, because Expectation check that function was called in order, and if it was the last expected
+arguments, because Expectation checks that function was called in order, and if it was the last expected
 call for overridden function, it restores the original state and overrides next function in the chain.
 */
 func Expectation() *Expect {
@@ -68,8 +68,22 @@ func Expectation() *Expect {
 }
 
 /*
-RunNumber return the number of current run for the override. Count is zero-based,
+RunNumber returns the sequence number of current run for the override. Count is zero-based,
 so for the first run it returns 0.
+
+It is useful when you need your mock to behave differently on different runs, for
+example:
+
+	//                 v-- function to be called twice
+	Override(ctx, foo, 2, func (a int, b string) {
+	    e := Expectation()
+	    if e.RunNumber() == 0 {  // zero-based, so first run is number 0
+	        e = e.Expect(42, "foo")
+	    } else {
+	        e = e.Expect(42, "bar")
+	    }
+	    e.CheckArgs(a, b)
+	})
 */
 func (e Expect) RunNumber() int {
 	return e.actCount - 1
