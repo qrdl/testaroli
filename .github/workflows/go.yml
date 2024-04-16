@@ -32,7 +32,7 @@ jobs:
     - id: gen_badge
       name: Generate badge
       if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: curl https://img.shields.io/badge/Coverage-${{ steps.cover.outputs.COVERAGE }}25-limegreen) - o coverage.svg
+      run: curl https://img.shields.io/badge/Coverage-${{ steps.cover.outputs.COVERAGE }}25-limegreen) -o coverage.svg
 
     - name: Upload badge
       #if: ${{ matrix.os == 'ubuntu-latest' }}
