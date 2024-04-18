@@ -35,7 +35,7 @@ jobs:
       run: curl https://img.shields.io/badge/Coverage-${{ steps.cover.outputs.COVERAGE }}25-limegreen -o coverage.svg
 
     - name: Upload badge
-      #if: ${{ matrix.os == 'ubuntu-latest' }}
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       uses: actions/upload-artifact@v4
       with:
         name: badge
