@@ -323,6 +323,15 @@ func TestWrongContext(t *testing.T) {
 	})
 }
 
+func TestNilComparison(t *testing.T) {
+	Override(TestingContext(t), qux, Once, func(err error) error {
+		Expectation().Expect(nil).CheckArgs(nil)
+		return nil
+	})
+
+	qux(nil)
+}
+
 func testError(t *testing.T, expected, actual error) {
 	t.Helper()
 	if expected == nil && actual != nil {

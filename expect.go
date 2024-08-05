@@ -128,8 +128,8 @@ func (e Expect) CheckArgs(args ...any) {
 		actualArg := reflect.ValueOf(a)
 		expectedArg := e.args[i]
 		if a == nil {
-			// no risk in calling IsNil here since we already established that type is nilable
-			if !expectedArg.IsNil() {
+			// process situations when Expect(nil) is called
+			if expectedArg.IsValid() && !expectedArg.IsNil() {
 				if e.expCount > 1 || e.expCount == Unlimited {
 					t.Errorf(
 						"arg %d on the run %d actual value is nil while non-nil is expected",
