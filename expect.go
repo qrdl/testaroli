@@ -129,7 +129,7 @@ func (e Expect) CheckArgs(args ...any) {
 		expectedArg := e.args[i]
 		if a == nil {
 			// process situations when Expect(nil) is called
-			if expectedArg.IsValid() && !expectedArg.IsNil() {
+			if expectedArg.IsValid() && (!isNillable(expectedArg) || !expectedArg.IsNil()) {
 				if e.expCount > 1 || e.expCount == Unlimited {
 					t.Errorf(
 						"arg %d on the run %d actual value is nil while non-nil is expected",
@@ -177,4 +177,14 @@ Testing returns [testing.T], embedded into the context, passed to [Override] fun
 */
 func (e Expect) Testing() *testing.T {
 	return Testing(e.ctx)
+}
+
+func isNillable(val reflect.Value) bool {
+	k := val.Kind()
+	switch k {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.UnsafePointer, reflect.Interface, reflect.Slice:
+		return true
+	default:
+		return false
+	}
 }
