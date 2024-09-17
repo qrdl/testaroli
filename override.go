@@ -226,9 +226,13 @@ func ExpectationsWereMet() error {
 		// special case - last expectation has unlimited number of repetitions, so it is not an error
 		if expectations[0].expCount == Unlimited {
 			return nil
+		} else if expectations[0].actCount == 0 {
+			return fmt.Errorf("some expectations weren't met - function %s was not called",
+				expectations[0].orgName)
+		} else {
+			return fmt.Errorf("some expectations weren't met - function %s was called %d time(s) instead of %d",
+				expectations[0].orgName, expectations[0].actCount, expectations[0].expCount)
 		}
-		return fmt.Errorf("some expectations weren't met - function %s was not called",
-			expectations[0].orgName)
 	}
 
 	return nil

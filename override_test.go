@@ -35,6 +35,13 @@ func qux(err error) error {
 	return err
 }
 
+func corge(a struct {
+	a int
+	b string
+}) int {
+	return a.a
+}
+
 func TestSingleCall(t *testing.T) {
 	Override(TestingContext(t), bar, Once, func(i int) error {
 		Expectation().CheckArgs(i)
@@ -330,6 +337,59 @@ func TestNilComparison(t *testing.T) {
 	})
 
 	qux(nil)
+}
+
+func TestCompareWithNil(t *testing.T) {
+	var t1 testing.T
+
+	Override(TestingContext(&t1), corge, Once, func(a struct {
+		a int
+		b string
+	}) int {
+		Expectation().CheckArgs(nil)
+		return 10
+	})(struct {
+		a int
+		b string
+	}{a: 1, b: "foo"})
+
+	corge(struct {
+		a int
+		b string
+	}{a: 1, b: "foo"})
+
+	testError(t, nil, ExpectationsWereMet())
+	if !t1.Failed() {
+		t.Errorf("expected error")
+	}
+}
+
+func TestOverriddenNotCalled(t *testing.T) {
+	var t1 testing.T
+
+	Override(TestingContext(&t1), qux, Once, func(err error) error {
+		Expectation().CheckArgs(err)
+		return nil
+	})(nil)
+
+	if ExpectationsWereMet().Error() != "some expectations weren't met - function github.com/qrdl/testaroli.qux was not called" {
+		t.Errorf("expected error")
+	}
+}
+
+func TestOverriddenCalledOnce(t *testing.T) {
+	var t1 testing.T
+
+	Override(TestingContext(&t1), qux, 2, func(err error) error {
+		Expectation().CheckArgs(err)
+		return nil
+	})(nil)
+
+	qux(nil)
+
+	if ExpectationsWereMet().Error() != "some expectations weren't met - function github.com/qrdl/testaroli.qux was called 1 time(s) instead of 2" {
+		t.Errorf("expected error")
+	}
 }
 
 func testError(t *testing.T, expected, actual error) {
