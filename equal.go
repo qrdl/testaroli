@@ -1,4 +1,9 @@
-//go:build ((arm64 && cgo) || amd64) && (linux || windows || (darwin && cgo))
+// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+//
+// This work is licensed under the terms of the Apache License, Version 2.0
+// For a copy, see <https://opensource.org/license/apache-2-0>.
+
+//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
 
 package testaroli
 

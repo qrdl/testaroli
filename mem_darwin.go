@@ -1,3 +1,8 @@
+// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+//
+// This work is licensed under the terms of the Apache License, Version 2.0
+// For a copy, see <https://opensource.org/license/apache-2-0>.
+
 package testaroli
 
 /*

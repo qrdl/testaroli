@@ -1,12 +1,13 @@
+// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+//
+// This work is licensed under the terms of the Apache License, Version 2.0
+// For a copy, see <https://opensource.org/license/apache-2-0>.
+
 package testaroli
 
 /*
-// I'm not sure how it works, but sometimes after updating binary in memory CPU
-// still executes old version (especially when you are using several mocks for
-// the same function, one after another), most likely it happens because
-// instruction cache wasn't flushed and execution switches to different core.
-// Using Go's atomics, C volatile and changing memory page protection don't help,
-// but flushing cache does.
+// ARM doesn't automatically invalidate instruction cache so manual flushing needed
+// after changing memory page with executable code
 
 #cgo CFLAGS: -g -Wall
 #include <stdint.h>
