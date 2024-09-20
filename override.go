@@ -1,3 +1,5 @@
+//go:build ((arm64 && cgo) || amd64) && (linux || windows || (darwin && cgo))
+
 /*
 Package testaroli allows to monkey patch Go test binary, e.g. override functions
 and methods with stubs/mocks to simplify unit testing.

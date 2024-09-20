@@ -1,3 +1,5 @@
+//go:build (amd64 && (linux || windows || darwin)) || (arm64 && (linux || macos))
+
 package testaroli
 
 import (
