@@ -1,4 +1,4 @@
-//go:build (amd64 && (linux || windows || darwin)) || (arm64 && (linux || macos))
+//go:build ((arm64 && cgo) || amd64) && (linux || windows || (darwin && cgo))
 
 package testaroli
 
