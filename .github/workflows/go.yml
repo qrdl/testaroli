@@ -19,8 +19,6 @@ jobs:
             arch: amd64
           - os: macos-latest
             arch: arm64
-          - os: macos-15-large
-            arch: amd64
           - os: macos-15
             arch: arm64
     steps:
