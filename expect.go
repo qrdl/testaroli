@@ -3,7 +3,7 @@
 // This work is licensed under the terms of the Apache License, Version 2.0
 // For a copy, see <https://opensource.org/license/apache-2-0>.
 
-//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
+//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
 
 package testaroli
 
@@ -55,19 +55,27 @@ func Expectation() *Expect {
 
 	// make sure we have called expected function
 	if uintptr(e.mockAddr) != entry {
+		// TODO: look for Always expectation
 		t.Errorf("unexpected function call (expected %s)", e.orgName) // should never happen
 		return &Expect{}
 	}
 
 	e.actCount++
-	if e.actCount == e.expCount && e.expCount != Unlimited {
+	if e.actCount == e.expCount && e.expCount != Unlimited && e.expCount != Always {
 		reset(e.orgAddr, e.orgPrologue)
 		expectations = expectations[1:] // remove from expected chain
-		if len(expectations) > 0 {
+		// look for next expectation which is not Always
+		next := 0 
+		for next, e = range expectations {
+			if e.expCount != Always {
+				break
+			}
+		}
+		if next < len(expectations) {
 			// override next expected function
-			expectations[0].orgPrologue = override( // call arch-specific function
-				expectations[0].orgAddr,
-				expectations[0].mockAddr)
+			expectations[next].orgPrologue = override( // call arch-specific function
+				expectations[next].orgAddr,
+				expectations[next].mockAddr)
 		}
 	}
 

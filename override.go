@@ -3,7 +3,7 @@
 // This work is licensed under the terms of the Apache License, Version 2.0
 // For a copy, see <https://opensource.org/license/apache-2-0>.
 
-//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
+//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
 
 /*
 Package testaroli allows to monkey patch Go test binary, e.g. override functions
@@ -97,9 +97,11 @@ import (
 type contextKey int
 
 const (
-	Once       = 1
-	Unlimited  = -1
-	testingKey = contextKey(1)
+	Once              = 1
+	Unlimited         = -1
+	Always            = -2
+	minOccurenceCount = Always
+	testingKey        = contextKey(1)
 )
 
 var expectations []*Expect
@@ -173,14 +175,22 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
 	}
 
-	if count <= 0 && count != Unlimited {
-		panic("Invalid count: must be a positive number or Unlimited")
+	if count <= minOccurenceCount || count == 0 {
+		panic("Invalid count: must be a positive number or Never/Unlimited/Always")
 	}
 
 	Testing(ctx) // just to make sure the context is correct
 
 	orgPointer := reflect.ValueOf(org).UnsafePointer()
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
+
+	// make sure override doesn't conflict for previous Always one
+	for _, e := range expectations {
+		if e.orgAddr == orgPointer && e.expCount == Always {
+			panic("Cannot override function that was previously overridden with 'Always' count")
+		}
+		// TODO: what about Always for function that was previously overridden ?
+	}
 
 	expectedCall := Expect{
 		ctx:      ctx,
@@ -206,8 +216,8 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	fn := reflect.ValueOf(&expectedArgsFunc).Elem()
 	fn.Set(v)
 
-	if len(expectations) == 0 {
-		// first mock - change function prologue
+	// first in a chain or Always
+	if len(expectations) == 0 || count == Always {
 		expectedCall.orgPrologue = override(orgPointer, mockPointer) // call arch-specific function
 	}
 	expectations = append(expectations, &expectedCall)
@@ -226,6 +236,7 @@ func ExpectationsWereMet() error {
 	defer func() { expectations = nil }()
 
 	if len(expectations) != 0 {
+		// TODO: handle Always
 		if len(expectations[0].orgPrologue) > 0 {
 			// reset last override
 			reset(expectations[0].orgAddr, expectations[0].orgPrologue)
