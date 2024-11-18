@@ -45,6 +45,7 @@ int make_text_writable() {
     ret = mach_vm_region(task,  &data_segment, &data_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
     CHECK_ERR("mach_vm_region");
     if (data_segment != text_segment + text_size) {
+        // should never happen
         fprintf(stderr, "DATA segment doesn't follow TEXT segment, cannot continue");
         return 1;
     }
@@ -62,7 +63,7 @@ int make_text_writable() {
     ret = mach_vm_protect(task, temp_segment, temp_size, 0, VM_PROT_READ|VM_PROT_WRITE);
     CHECK_ERR("mach_vm_protect");
 
-    // copy TEXT, DATA_CONST and DATA segments to temp segment (to keep relative references to vars in DATA_CONST and DATA segments correct)
+    // copy TEXT, DATA_CONST and DATA segments to TEMP segment (to keep relative references to vars in DATA_CONST and DATA segments correct)
     ret = mach_vm_copy(task, text_segment, text_size, temp_segment);
     CHECK_ERR("mach_vm_copy");
     ret = mach_vm_copy(task, data_segment, data_size, temp_segment+text_size);
@@ -70,7 +71,7 @@ int make_text_writable() {
     ret = mach_vm_copy(task, data2_segment, data2_size, temp_segment+text_size+data_size);
     CHECK_ERR("mach_vm_copy");
 
-    // make temp segment executable
+    // make TEMP segment executable
     ret = mach_vm_protect(task, temp_segment, temp_size, 0, VM_PROT_READ|VM_PROT_EXECUTE);
     CHECK_ERR("mach_vm_protect");
 
@@ -95,15 +96,15 @@ int overwrite_prolog(uint64_t func_addr, uint64_t buf, uint64_t bufsize) {
     return func(buf, bufsize, func_addr);
 }
 
-// this function is executed in temp segment
+// this function is executed in TEMP segment
 // it destroys original TEXT segment, creates new one in the same place and copies
-// the original TEXT content from temp segment to new TEXT
+// the original TEXT content from TEMP segment to new TEXT
 // this function must not update any globals because TEMP segment is not writable!
 static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, mach_vm_address_t tmp) {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
 
-    // need to suspend all other threads to prevent them accessing tEXT while it is not there
+    // need to suspend all other threads to prevent them accessing TEXT while it is not there
     kern_return_t ret = suspend_other_threads();
     CHECK_ERR("suspend threads");
 
@@ -127,7 +128,7 @@ static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, ma
     ret = mach_vm_protect(task, text, size, 0, VM_PROT_READ|VM_PROT_EXECUTE);
     CHECK_ERR("mach_vm_protect");
 
-    ret = resume_other_threads(); // don't care about result
+    ret = resume_other_threads();
     CHECK_ERR("resume threads");
 
     return 0;

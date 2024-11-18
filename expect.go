@@ -45,41 +45,44 @@ func Expectation() *Expect {
 	}
 	entry := runtime.FuncForPC(pc).Entry()
 
-	if len(expectations) == 0 {
-		panic("unexpected function call")
+	var expect *Expect
+	// make sure we have called expected function
+	for i, e := range expectations {
+		if uintptr(e.mockAddr) == entry {
+			// must be either first in chain or Always
+			if i == 0 || e.expCount == Always {
+				expect = e
+				break
+			}
+			t := e.Testing()
+			t.Helper()
+			t.Errorf("out of order call - not all previous expectations were met")
+		}
+	}
+	if expect == nil {
+		panic("unexpected function call - not from mock function")
 	}
 
-	e := expectations[0]
-	t := e.Testing()
+	t := expect.Testing()
 	t.Helper()
 
-	// make sure we have called expected function
-	if uintptr(e.mockAddr) != entry {
-		// TODO: look for Always expectation
-		t.Errorf("unexpected function call (expected %s)", e.orgName) // should never happen
-		return &Expect{}
-	}
-
-	e.actCount++
-	if e.actCount == e.expCount && e.expCount != Unlimited && e.expCount != Always {
-		reset(e.orgAddr, e.orgPrologue)
+	expect.actCount++
+	if expect.actCount == expect.expCount && !(expect.expCount == Unlimited || expect.expCount == Always) {
+		reset(expect.orgAddr, expect.orgPrologue)
 		expectations = expectations[1:] // remove from expected chain
-		// look for next expectation which is not Always
-		next := 0 
-		for next, e = range expectations {
+		// look for next not-Always expectation
+		for i, e := range expectations {
 			if e.expCount != Always {
+				// override next expected function
+				expectations[i].orgPrologue = override( // call arch-specific function
+					e.orgAddr,
+					e.mockAddr)
 				break
 			}
 		}
-		if next < len(expectations) {
-			// override next expected function
-			expectations[next].orgPrologue = override( // call arch-specific function
-				expectations[next].orgAddr,
-				expectations[next].mockAddr)
-		}
 	}
 
-	return e
+	return expect
 }
 
 /*

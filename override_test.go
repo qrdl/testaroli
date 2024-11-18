@@ -268,23 +268,6 @@ func TestExpectNilFail2(t *testing.T) {
 }
 
 func TestInvalidExpectationCall(t *testing.T) {
-	var t1 testing.T
-	Override(TestingContext(&t1), qux, Once, func(err error) error {
-		Expectation().CheckArgs(err)
-		return nil
-	})(errors.New("dummy"))
-
-	Expectation()
-	if !t1.Failed() {
-		t.Errorf("expected error")
-	}
-	if ExpectationsWereMet().Error() != "some expectations weren't met - function github.com/qrdl/testaroli.qux was not called" {
-		t.Errorf("expected error")
-	}
-	testError(t, nil, ExpectationsWereMet())
-}
-
-func TestInvalidExpectationCall2(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
