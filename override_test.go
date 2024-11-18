@@ -3,6 +3,7 @@ package testaroli
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -353,7 +354,7 @@ func TestCompareWithNil(t *testing.T) {
 		b string
 	}{a: 1, b: "foo"})
 
-	corge(struct {
+	_ = corge(struct {
 		a int
 		b string
 	}{a: 1, b: "foo"})
@@ -372,7 +373,11 @@ func TestOverriddenNotCalled(t *testing.T) {
 		return nil
 	})(nil)
 
-	if ExpectationsWereMet().Error() != "some expectations weren't met - function github.com/qrdl/testaroli.qux was not called" {
+	err := ExpectationsWereMet()
+	if !errors.Is(err, ErrExpectationsNotMet) {
+		t.Errorf("expected error")
+	}
+	if !strings.Contains(err.Error(), "function github.com/qrdl/testaroli.qux was not called") {
 		t.Errorf("expected error")
 	}
 }
@@ -387,9 +392,81 @@ func TestOverriddenCalledOnce(t *testing.T) {
 
 	qux(nil)
 
-	if ExpectationsWereMet().Error() != "some expectations weren't met - function github.com/qrdl/testaroli.qux was called 1 time(s) instead of 2" {
+	err := ExpectationsWereMet()
+	testError(t, ErrExpectationsNotMet, err)
+	if !strings.Contains(err.Error(), "function github.com/qrdl/testaroli.qux was called 1 time(s) instead of 2") {
 		t.Errorf("expected error")
 	}
+}
+
+func TestAlwaysDoubleOverride(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+		ExpectationsWereMet()
+	}()
+
+	ctx := TestingContext(t)
+
+	Override(ctx, baz, Always, func(i int) error {
+		e := Expectation()
+		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
+		e.CheckArgs(i)
+		return nil
+	})
+
+	Override(ctx, baz, Once, func(i int) error {
+		e := Expectation()
+		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
+		e.CheckArgs(i)
+		return nil
+	})
+
+	foo(1)
+}
+
+func TestAlwaysDoubleOverride2(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+		ExpectationsWereMet()
+	}()
+
+	ctx := TestingContext(t)
+
+	Override(ctx, baz, Once, func(i int) error {
+		e := Expectation()
+		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
+		e.CheckArgs(i)
+		return nil
+	})
+
+	Override(ctx, baz, Always, func(i int) error {
+		e := Expectation()
+		e.Expect(e.RunNumber() + e.Context().Value(key).(int))
+		e.CheckArgs(i)
+		return nil
+	})
+
+	foo(1)
+}
+
+func TestAlways(t *testing.T) {
+	ctx := TestingContext(t)
+
+	Override(ctx, baz, Always, func(i int) error {
+		e := Expectation()
+		e.Expect(e.RunNumber() + 100)
+		e.CheckArgs(i)
+		return nil
+	})(100)
+
+	err := foo(102)
+
+	testError(t, nil, err)
+	testError(t, nil, ExpectationsWereMet())
 }
 
 func testError(t *testing.T, expected, actual error) {
@@ -402,7 +479,7 @@ func testError(t *testing.T, expected, actual error) {
 		t.Errorf("no error reported when [%v] error expected", expected)
 		return
 	}
-	if !errors.Is(expected, actual) {
+	if !errors.Is(actual, expected) {
 		t.Errorf("got [%v] error when [%v] error expected", actual, expected)
 		return
 	}

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -46,39 +47,33 @@ func Expectation() *Expect {
 	entry := runtime.FuncForPC(pc).Entry()
 
 	var expect *Expect
+	var order int
 	// make sure we have called expected function
 	for i, e := range expectations {
 		if uintptr(e.mockAddr) == entry {
-			// must be either first in chain or Always
-			if i == 0 || e.expCount == Always {
+			// must be either Always or first on non-Always
+			if e.expCount == Always || numLeadingAlways() == i {
 				expect = e
+				order = i
 				break
 			}
-			t := e.Testing()
-			t.Helper()
-			t.Errorf("out of order call - not all previous expectations were met")
+			panic("unexpected function call") // should never happen
 		}
 	}
 	if expect == nil {
 		panic("unexpected function call - not from mock function")
 	}
 
-	t := expect.Testing()
-	t.Helper()
-
 	expect.actCount++
 	if expect.actCount == expect.expCount && !(expect.expCount == Unlimited || expect.expCount == Always) {
 		reset(expect.orgAddr, expect.orgPrologue)
-		expectations = expectations[1:] // remove from expected chain
-		// look for next not-Always expectation
-		for i, e := range expectations {
-			if e.expCount != Always {
-				// override next expected function
-				expectations[i].orgPrologue = override( // call arch-specific function
-					e.orgAddr,
-					e.mockAddr)
-				break
-			}
+		expectations = slices.Delete(expectations, order, order+1) // remove from expected chain
+		// override next non-Always expectation
+		next := numLeadingAlways()
+		if next < len(expectations) {
+			expectations[next].orgPrologue = override( // call arch-specific function
+				expectations[next].orgAddr,
+				expectations[next].mockAddr)
 		}
 	}
 
