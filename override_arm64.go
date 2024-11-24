@@ -11,7 +11,8 @@ package testaroli
 
 #include <stdint.h>
 void flush_cache(uint64_t addr, size_t len) {
-	__builtin___clear_cache(target, (char *)addr + len);
+	char *target = (char *)addr;
+	__builtin___clear_cache(target, target + len);
 }
 */
 import "C"
