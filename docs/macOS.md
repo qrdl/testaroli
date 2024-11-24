@@ -8,7 +8,7 @@ macOS kernel applies stricter permission control on memory segments. In addition
 #### Solution
 If `TEXT` segment cannot be modified, it has to be re-created with different permissions. To keep all addresses to point to correct functions and data, the segment must be created at the same address, which means that old segment has to be removed first, but it cannot be removed because it contains the code that is being executed, i.e. `PC` (program counter) points to instructions inside the segment. To overcome this issue Testaroli at startup creates a copy of `TEXT` segment (let's call it `TEMP` segment) and calls function in `TEMP` segment (so now `PC` points to `TEMP`, not `TEXT`) that removes original `TEXT` segment and re-creates it at the same address, but with `rwx` max permissions. When this function returns (back to `TEXT` segment), the program continues as nothing happened, but now `TEXT` segment can be made writable.
 
-See `make_text_writable()` in [mem_darwin.go](../mem_darwin.go) for the implementation.
+See `make_text_writable()` in [mem_darwin.h](../mem_darwin.h) for the implementation.
 
 ## Problem 2
 Although new `TEXT` segment is created with `rwx` max permissions, macOS has some extra checks and it doesn't allow to execute instructions from writable segment, so `TEXT` must have `r-x` effective permissions while it is executed. It means Testaroli cannot modify `TEXT` from within `TEXT` itself.
@@ -16,7 +16,7 @@ Although new `TEXT` segment is created with `rwx` max permissions, macOS has som
 #### Solution
 Because Testaroli has already created a copy of `TEXT` segment at startup (remember `TEMP`?), it just switches the execution to `TEMP` and modifies `TEXT` from there.
 
-See `overwrite_prolog()` in [mem_darwin.go](../mem_darwin.go) for the implementation.
+See `overwrite_prolog()` in [mem_darwin.h](../mem_darwin.h) for the implementation.
 
 ## Problem 3
 However, there is one issue with this approach - because Go is a garbage-collected language, Go's runtime has a separate goroutine which wakes up regularly to check if there is enough garbage to collect. If it happens at the moment when `TEXT` segment doesn't exist, it obviously results in segfault.

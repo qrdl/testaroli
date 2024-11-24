@@ -9,11 +9,9 @@ package testaroli
 // ARM doesn't automatically invalidate instruction cache so manual flushing needed
 // after changing memory page with executable code
 
-#cgo CFLAGS: -g -Wall
 #include <stdint.h>
 void flush_cache(uint64_t addr, size_t len) {
-	char *target = (char *)addr;
-	__builtin___clear_cache(target, target + len);
+	__builtin___clear_cache(target, (char *)addr + len);
 }
 */
 import "C"
