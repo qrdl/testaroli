@@ -4,8 +4,9 @@
 // For a copy, see <https://opensource.org/license/apache-2-0>.
 
 package testaroli
-
-// #include "mem_darwin.h"
+/*
+#include "mem_darwin.h"
+*/
 import "C"
 
 import (
