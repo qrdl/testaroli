@@ -1,9 +1,16 @@
+// This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
 // Copyright (c) 2024 Ilya Caramishev. All rights reserved.
 //
-// This work is licensed under the terms of the Apache License, Version 2.0
-// For a copy, see <https://opensource.org/license/apache-2-0>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
+//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
 
 package testaroli
 
@@ -12,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -45,33 +53,38 @@ func Expectation() *Expect {
 	}
 	entry := runtime.FuncForPC(pc).Entry()
 
-	if len(expectations) == 0 {
-		panic("unexpected function call")
-	}
-
-	e := expectations[0]
-	t := e.Testing()
-	t.Helper()
-
+	var expect *Expect
+	var order int
 	// make sure we have called expected function
-	if uintptr(e.mockAddr) != entry {
-		t.Errorf("unexpected function call (expected %s)", e.orgName) // should never happen
-		return &Expect{}
+	for i, e := range expectations {
+		if uintptr(e.mockAddr) == entry {
+			// must be either Always or first on non-Always
+			if e.expCount == Always || numLeadingAlways() == i {
+				expect = e
+				order = i
+				break
+			}
+			panic("unexpected function call") // should never happen
+		}
+	}
+	if expect == nil {
+		panic("unexpected function call - not from mock function")
 	}
 
-	e.actCount++
-	if e.actCount == e.expCount && e.expCount != Unlimited {
-		reset(e.orgAddr, e.orgPrologue)
-		expectations = expectations[1:] // remove from expected chain
-		if len(expectations) > 0 {
-			// override next expected function
-			expectations[0].orgPrologue = override( // call arch-specific function
-				expectations[0].orgAddr,
-				expectations[0].mockAddr)
+	expect.actCount++
+	if expect.actCount == expect.expCount && !(expect.expCount == Unlimited || expect.expCount == Always) {
+		reset(expect.orgAddr, expect.orgPrologue)
+		expectations = slices.Delete(expectations, order, order+1) // remove from expected chain
+		// override next non-Always expectation
+		next := numLeadingAlways()
+		if next < len(expectations) {
+			expectations[next].orgPrologue = override( // call arch-specific function
+				expectations[next].orgAddr,
+				expectations[next].mockAddr)
 		}
 	}
 
-	return e
+	return expect
 }
 
 /*

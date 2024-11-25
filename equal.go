@@ -1,9 +1,16 @@
+// This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
 // Copyright (c) 2024 Ilya Caramishev. All rights reserved.
 //
-// This work is licensed under the terms of the Apache License, Version 2.0
-// For a copy, see <https://opensource.org/license/apache-2-0>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
+//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
 
 package testaroli
 
@@ -12,13 +19,15 @@ import (
 	"reflect"
 )
 
-// standard reflect.Value.Equal has several issues:
-// - it compares pointers only as addresses
-// - it doesn't compare maps
-// - it doesn't compare slices
-// - it doesn't explain what exactly has failed
-// - it panics
-// so I've rolled my own, based on reflect's implementation
+/*
+Standard reflect.Value.Equal has several issues:
+- it compares pointers only as addresses
+- it doesn't compare maps
+- it doesn't compare slices
+- it doesn't explain what exactly has failed
+- it panics
+so I've rolled my own, based on reflect's implementation
+*/
 func equal(a, e reflect.Value) (bool, string) {
 	if a.Kind() == reflect.Interface {
 		a = a.Elem()

@@ -1,9 +1,16 @@
+// This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
 // Copyright (c) 2024 Ilya Caramishev. All rights reserved.
 //
-// This work is licensed under the terms of the Apache License, Version 2.0
-// For a copy, see <https://opensource.org/license/apache-2-0>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-//go:build ((linux || darwin) && (amd64 || arm64 )) || (windows && amd64)
+//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
 
 /*
 Package testaroli allows to monkey patch Go test binary, e.g. override functions
@@ -88,6 +95,7 @@ package testaroli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -97,12 +105,15 @@ import (
 type contextKey int
 
 const (
-	Once       = 1
-	Unlimited  = -1
-	testingKey = contextKey(1)
+	Once              = 1
+	Unlimited         = -1
+	Always            = -2
+	minOccurenceCount = Always
+	testingKey        = contextKey(1)
 )
 
 var expectations []*Expect
+var ErrExpectationsNotMet = errors.New("expectaions were not met")
 
 /*
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,
@@ -173,14 +184,25 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
 	}
 
-	if count <= 0 && count != Unlimited {
-		panic("Invalid count: must be a positive number or Unlimited")
+	if count < minOccurenceCount || count == 0 {
+		panic("Invalid count: must be a positive number or Never/Unlimited/Always")
 	}
 
 	Testing(ctx) // just to make sure the context is correct
 
 	orgPointer := reflect.ValueOf(org).UnsafePointer()
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
+
+	// make sure override doesn't conflict for previous Always one
+	for _, e := range expectations {
+		if e.orgAddr == orgPointer {
+			if e.expCount == Always {
+				panic("Cannot override function that was previously overridden with 'Always' count")
+			} else if count == Always {
+				panic("Cannot Always override function that was previously overridden")
+			}
+		}
+	}
 
 	expectedCall := Expect{
 		ctx:      ctx,
@@ -206,13 +228,22 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	fn := reflect.ValueOf(&expectedArgsFunc).Elem()
 	fn.Set(v)
 
-	if len(expectations) == 0 {
-		// first mock - change function prologue
+	// all previous overrides are Always or this one it Always
+	if count == Always || len(expectations) == numLeadingAlways() {
 		expectedCall.orgPrologue = override(orgPointer, mockPointer) // call arch-specific function
 	}
 	expectations = append(expectations, &expectedCall)
 
 	return expectedArgsFunc
+}
+
+func numLeadingAlways() int {
+	for i, e := range expectations {
+		if e.expCount != Always {
+			return i
+		}
+	}
+	return len(expectations)
 }
 
 /*
@@ -225,24 +256,25 @@ of overridden functions.
 func ExpectationsWereMet() error {
 	defer func() { expectations = nil }()
 
-	if len(expectations) != 0 {
-		if len(expectations[0].orgPrologue) > 0 {
-			// reset last override
-			reset(expectations[0].orgAddr, expectations[0].orgPrologue)
+	var err error
+	for i, e := range expectations {
+		reset(e.orgAddr, e.orgPrologue)
+		// Always or last expectation is Unlimited - not an error
+		if e.expCount == Unlimited && i == len(expectations)-1 || e.expCount == Always {
+			break
 		}
-		// special case - last expectation has unlimited number of repetitions, so it is not an error
-		if expectations[0].expCount == Unlimited {
-			return nil
-		} else if expectations[0].actCount == 0 {
-			return fmt.Errorf("some expectations weren't met - function %s was not called",
-				expectations[0].orgName)
+		if e.actCount == 0 {
+			err = errors.Join(err, fmt.Errorf("function %s was not called", e.orgName))
 		} else {
-			return fmt.Errorf("some expectations weren't met - function %s was called %d time(s) instead of %d",
-				expectations[0].orgName, expectations[0].actCount, expectations[0].expCount)
+			err = errors.Join(err, fmt.Errorf("function %s was called %d time(s) instead of %d",
+				e.orgName, e.actCount, e.expCount))
 		}
 	}
+	if err != nil {
+		err = errors.Join(ErrExpectationsNotMet, err)
+	}
 
-	return nil
+	return err
 }
 
 /*
