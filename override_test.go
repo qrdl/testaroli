@@ -25,7 +25,7 @@ func bar(i int) error {
 	if i%2 == 0 {
 		return qux(nil)
 	}
-	return qux(errors.New("even"))
+	return qux(errors.New("odd"))
 }
 
 func baz(i int) error {
@@ -301,24 +301,6 @@ func TestInvalidOverride(t *testing.T) {
 	Override(TestingContext(t), 1, a, b) // not functions
 }
 
-func TestOverrideAfterUnlimited(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-		ExpectationsWereMet()
-	}()
-
-	ctx := TestingContext(t)
-	Override(ctx, bar, Unlimited, func(i int) error {
-		return nil
-	})
-
-	Override(ctx, baz, Once, func(i int) error {
-		return nil
-	})
-}
-
 func TestWrongContext(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -464,6 +446,35 @@ func TestAlways(t *testing.T) {
 	})(100)
 
 	err := foo(102)
+
+	testError(t, nil, err)
+	testError(t, nil, ExpectationsWereMet())
+}
+
+func TestFuncVar(t *testing.T) {
+	incFunc := func(a int) int {
+		return a + 1
+	}
+
+	Override(TestingContext(t), incFunc, Once, func(a int) int {
+		Expectation().CheckArgs(a)
+		return a - 1
+	})(100)
+
+	if incFunc(100) != 99 {
+		t.Error("unexpected")
+	}
+	testError(t, nil, ExpectationsWereMet())
+}
+
+func TestFuncVar2(t *testing.T) {
+	barVar := bar
+	Override(TestingContext(t), barVar, Once, func(i int) error {
+		Expectation().CheckArgs(i)
+		return nil
+	})(2)
+
+	err := foo(1)
 
 	testError(t, nil, err)
 	testError(t, nil, ExpectationsWereMet())

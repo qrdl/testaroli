@@ -162,7 +162,7 @@ static int suspend_other_threads() {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
     thread_act_array_t threads;
-	mach_msg_type_number_t thread_count;
+    mach_msg_type_number_t thread_count;
 
     int ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");
@@ -182,7 +182,7 @@ static int resume_other_threads() {
     task_t task;
     task_for_pid(mach_task_self(), getpid(), &task);
     thread_act_array_t threads;
-	mach_msg_type_number_t thread_count;
+    mach_msg_type_number_t thread_count;
 
     int ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");

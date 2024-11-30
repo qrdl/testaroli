@@ -39,8 +39,8 @@ type Expect struct {
 }
 
 /*
-Expectation can be called only from inside the mock, it checks whether function call was expected at this point,
-and return matching expectation.
+Expectation can be called only from inside the mock (it panics otherwise), it checks whether function call
+was expected at this point, and return matching expectation.
 
 It is important to always call Expectation from the mock function, even if you don't want to check
 arguments, because Expectation checks that function was called in order, and if it was the last expected
@@ -75,16 +75,19 @@ func Expectation() *Expect {
 	if expect.actCount == expect.expCount && !(expect.expCount == Unlimited || expect.expCount == Always) {
 		reset(expect.orgAddr, expect.orgPrologue)
 		expectations = slices.Delete(expectations, order, order+1) // remove from expected chain
-		// override next non-Always expectation
-		next := numLeadingAlways()
-		if next < len(expectations) {
-			expectations[next].orgPrologue = override( // call arch-specific function
-				expectations[next].orgAddr,
-				expectations[next].mockAddr)
-		}
+		overrideNextInChain()
 	}
 
 	return expect
+}
+
+func overrideNextInChain() {
+	next := numLeadingAlways()
+	if next < len(expectations) {
+		expectations[next].orgPrologue = override( // call arch-specific function
+			expectations[next].orgAddr,
+			expectations[next].mockAddr)
+	}
 }
 
 /*
@@ -150,7 +153,7 @@ func (e Expect) CheckArgs(args ...any) {
 		if a == nil {
 			// process situations when Expect(nil) is called
 			if expectedArg.IsValid() && (!isNillable(expectedArg) || !expectedArg.IsNil()) {
-				if e.expCount > 1 || e.expCount == Unlimited {
+				if e.expCount > 1 || e.expCount == Unlimited || e.expCount == Always {
 					t.Errorf(
 						"arg %d on the run %d actual value is nil while non-nil is expected",
 						i,
@@ -172,7 +175,7 @@ func (e Expect) CheckArgs(args ...any) {
 					actualArg,
 					expectedArg)
 			}
-			if e.expCount > 1 || e.expCount == Unlimited {
+			if e.expCount > 1 || e.expCount == Unlimited || e.expCount == Always {
 				t.Errorf("arg %d on the run %d: %s",
 					i+1,
 					e.actCount-1, // 0-based
