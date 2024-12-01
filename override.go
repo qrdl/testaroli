@@ -28,6 +28,25 @@ Supported OS/arch combinations:
   - macOS / x86_64
   - macOS / ARM64
 
+# The concept
+
+This package allows you to modify test binary to call your mocks instead of functions it supposed to call.
+It internally maintains the override chain, it means it is possible not to override all needed functions
+with mocks at the start, but one by one, thus controlling the order of calls. To achieve this, when overriding
+function with mock it is required to specify the number of calls this mock should be called, and when this
+counter is reached, the overridden function gets reset to its original state i.e. no longer overridden, and
+next function in the chain gets overridden.
+
+However, there are to special counter values - [Unlimited] and [Always]. Override with [Unlimited] count is
+not removed from chain until [Reset]/[ResetAll] function is called, it means no overrides behind [Unlimited]
+one become effective until [Unlimited] override is reset.
+
+[Always] override, unlike any other overrides, is always effective, it means if doesn't belong to the chain.
+If it is not important to control correct order of mock calls, the test case can use only [Always] overrides.
+However, there is a limitation - [Always] override for the function X is mutually exclusive with any other
+override for the same function X, so attempt to [Always] override previously overridden function will panic.
+Similarly to all other overrides, [Always] override can be reset with [Reset]/[ResetAll].
+
 # Command line options
 
 It is recommended to switch off compiler optimisations and disable function inlining
@@ -99,6 +118,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"testing"
 )
 
@@ -119,10 +139,18 @@ var ErrExpectationsNotMet = errors.New("expectaions were not met")
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,
 otherwise compilation error is reported.
 It has <count> argument to specify how many calls to <org> functions are expected, which must be
-a positive number, or [Unlimited]. After <org> function got called <count> times, the <org>
-function is no longer overridden and next override in the chain becomes effective.
-[Unlimited] value for <count> means that there is no limit for number of <org> calls, and such override
-can only be the last one in the chain of overrides.
+a positive number, [Unlimited] or [Always]. If this is the first non-[Always] override, the function
+get overridden immediately, all subsequent non-[Always] overrides are put into override chain.
+After <org> function got called <count> times, the <org> function is no longer overridden and next
+override in the chain becomes effective.
+
+[Unlimited] value for <count> means that there is no limit for number of <org> calls. Override
+following [Unlimited] one in he chain becomes effective only after [Unlimited] override is reset
+with [Reset]/[ResetAll].
+
+[Always] value for count means that override is not a part of override chain and and always effective
+(until reset). It is an error to [Always] override previously overridden function or override the
+function that was previously overriden with [Always], in either case Override panics.
 
 It is ok to call Override several times, however only the first override becomes immediately effecive,
 all subsequent overrides are placed in the chain and become effective only when previous override is
@@ -149,18 +177,18 @@ Override returns function of generic type T that allows to set expected values f
 	    Expectation().CheckArgs(a, b)
 	})(42, "bar")
 
-and it works like
+and it works the same as
 
 	Override(ctx, foo, Once, func (a int, b string) {
 	    Expectation().Expect(42, "bar").CheckArgs(a, b)
-
 	})
 
 but has a benefit of checking types for expected values at compile time, thanks to Go generics.
 
 Override takes a context as a first argument, and this context must be created with
-[TestingContext] or derived from the context, returned by [TestingContext]. This function will panic
-if it is passed invalid context.
+[TestingContext] or derived from the context, returned by [TestingContext]. This function panics
+if is given invalid context.
+
 It is important to remember that mock function is executed in the scope of original function, therefore
 variables and functions, declared within test case scope, are not accessible, although compiler considers
 the code valid. To overcome this limitation pass the variable in the context, in this case you can obtain
@@ -178,10 +206,6 @@ You can override regular functions and methods, including standard ones, but not
 func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	if reflect.ValueOf(org).Kind() != reflect.Func || reflect.ValueOf(mock).Kind() != reflect.Func {
 		panic("Override() can be called only for function/method")
-	}
-
-	if len(expectations) > 0 && expectations[len(expectations)-1].expCount == Unlimited {
-		panic("Cannot override the function because previous override in chain has unlimited number of repetitions, therefore this override is unreachable")
 	}
 
 	if count < minOccurenceCount || count == 0 {
@@ -260,7 +284,7 @@ func ExpectationsWereMet() error {
 	for i, e := range expectations {
 		reset(e.orgAddr, e.orgPrologue)
 		// Always or last expectation is Unlimited - not an error
-		if e.expCount == Unlimited && i == len(expectations)-1 || e.expCount == Always {
+		if (e.expCount == Unlimited && i == len(expectations)-1) || e.expCount == Always {
 			break
 		}
 		if e.actCount == 0 {
@@ -285,7 +309,8 @@ func TestingContext(t *testing.T) context.Context {
 }
 
 /*
-Testing returns the [testing.T], embedded into the context with [TestingContext].
+Testing returns the [testing.T], embedded into the context with [TestingContext]. If the context wasn't
+created with [TestingContext], this function panics.
 */
 func Testing(ctx context.Context) *testing.T {
 	defer func() {
@@ -295,4 +320,62 @@ func Testing(ctx context.Context) *testing.T {
 	}()
 
 	return ctx.Value(testingKey).(*testing.T)
+}
+
+/*
+Reset resets previously overridden function. If there are several overrides for the function in the
+override chain, only the first match gets reset. Use [ResetAll] to reset all matching entries.
+If the function being reset is currently overridden with non-[Always] count (first in override chain),
+next function in override chain gets overridden.
+
+Resetting not overridden function is a safe no-op.
+*/
+func Reset(org any) {
+	if reflect.ValueOf(org).Kind() != reflect.Func {
+		panic("Reset() can be called only for function/method")
+	}
+
+	orgPointer := reflect.ValueOf(org).UnsafePointer()
+	for i, e := range expectations {
+		if e.orgAddr == orgPointer {
+			expectations = slices.Delete(expectations, i, i+1)
+			if len(e.orgPrologue) > 0 {
+				reset(e.orgAddr, e.orgPrologue)
+				if e.expCount != Always {
+					overrideNextInChain()
+				}
+			}
+			break
+		}
+	}
+}
+
+/*
+ResetAll resets previously overridden function. If there are several overrides for the function in the
+override chain, all of them get reset/removed for the chain. To remove only the first match use [Reset].
+If the function being reset is currently overridden with non-[Always] count (first in override chain),
+next function in override chain gets overridden.
+
+Resetting not overridden function is a safe no-op.
+*/
+func ResetAll(org any) {
+	if reflect.ValueOf(org).Kind() != reflect.Func {
+		panic("Reset() can be called only for function/method")
+	}
+
+	orgPointer := reflect.ValueOf(org).UnsafePointer()
+	for i := 0; i < len(expectations); {
+		e := expectations[i]
+		if e.orgAddr == orgPointer {
+			expectations = slices.Delete(expectations, i, i+1)
+			if len(e.orgPrologue) > 0 {
+				reset(e.orgAddr, e.orgPrologue)
+				if e.expCount != Always {
+					overrideNextInChain()
+				}
+			}
+		} else {
+			i++
+		}
+	}
 }
