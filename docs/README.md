@@ -15,10 +15,10 @@ This package modifies actual executable at runtime, therefore is OS- and CPU arc
 
 OS/arch combinations:
 
-|         | x86_64    | ARM64     |
+|         | x86-64    | ARM64     |
 |---------|-----------|-----------|
 | Linux   | Supported | Supported |
-| Windows | Supported | -         |
+| Windows | Supported | Supported |
 | macOS   | Supported | Supported |
 
 ## Command line options
@@ -88,4 +88,4 @@ func TestFoo(t *testing.T) {
 }
 ```
 
-See more advanced usage examples in [examples](../examples) directory.
+See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
