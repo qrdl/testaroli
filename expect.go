@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
+//go:build ((linux || darwin || windows) && (amd64 || arm64))
 
 package testaroli
 
