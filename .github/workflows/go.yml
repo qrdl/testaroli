@@ -56,3 +56,16 @@ jobs:
         gist_id: "5bfca1854a183da5294ad00cb41ace31"
         file_name: "coverage.svg"
         content: ${{ steps.gen_badge.outputs.BADGE }}
+
+  freebsd:
+    name: Test on FreeBSD/amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: 14.1
+          run: |
+            go test -v -gcflags="all=-N -l" ./examples/...
+            go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
