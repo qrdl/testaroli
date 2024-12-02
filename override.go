@@ -28,7 +28,7 @@ Supported OS/arch combinations:
   - Windows / ARM64
   - macOS / x86-64
   - macOS / ARM64
-  - FreeBSD / x86-64 (tested on FreeBSD but other BSD flavours should be ok as well)
+  - FreeBSD / x86-64 (tested on FreeBSD but other BSD flavours should also be ok)
 
 # The concept
 
