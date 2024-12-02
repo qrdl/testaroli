@@ -13,7 +13,7 @@
 package testaroli
 
 /*
-// Arm64 doesn't automatically invalidate instruction cache so manual flushing is needed
+// ARM64 doesn't automatically invalidate instruction cache so manual flushing is needed
 // after changing memory page with executable code
 
 #include <stdint.h>

@@ -1,6 +1,6 @@
 module github.com/qrdl/testaroli
 
-go 1.21.9
+go 1.21
 
 require golang.org/x/sys v0.27.0
 

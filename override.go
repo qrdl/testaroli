@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build ((linux || darwin) && (amd64 || arm64)) || (windows && amd64)
+//go:build (linux || darwin || windows) && (amd64 || arm64)
 
 /*
 Package testaroli allows to monkey patch Go test binary, e.g. override functions
@@ -22,10 +22,11 @@ It should be used only for unit testing and never in production!
 This package modifies actual executable at runtime, therefore is OS- and CPU arch-specific.
 
 Supported OS/arch combinations:
-  - Linux / x86_64
+  - Linux / x86-64
   - Linux / ARM64
-  - Windows / x86_64
-  - macOS / x86_64
+  - Windows / x86-64
+  - Windows / ARM64
+  - macOS / x86-64
   - macOS / ARM64
 
 # The concept
@@ -150,7 +151,7 @@ with [Reset]/[ResetAll].
 
 [Always] value for count means that override is not a part of override chain and and always effective
 (until reset). It is an error to [Always] override previously overridden function or override the
-function that was previously overriden with [Always], in either case Override panics.
+function that was previously overridden with [Always], in either case Override panics.
 
 It is ok to call Override several times, however only the first override becomes immediately effecive,
 all subsequent overrides are placed in the chain and become effective only when previous override is
