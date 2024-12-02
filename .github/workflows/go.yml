@@ -67,7 +67,9 @@ jobs:
         with:
           release: 14.1
           usesh: true
+          copyback: false
+          prepare: |
+            pkg install -y go
           run: |
-            pkg install -y golang
             go test -v -gcflags="all=-N -l" ./examples/...
             go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
