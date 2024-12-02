@@ -1,3 +1,5 @@
+//go:build linux || dragonfly || freebsd || netbsd || openbsd
+
 package testaroli
 
 import (
