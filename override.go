@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (linux || darwin || windows) && (amd64 || arm64)
+//go:build (unix || windows) && (amd64 || arm64)
 
 /*
 Package testaroli allows to monkey patch Go test binary, e.g. override functions
@@ -28,6 +28,7 @@ Supported OS/arch combinations:
   - Windows / ARM64
   - macOS / x86-64
   - macOS / ARM64
+  - FreeBSD / x86-64 (tested on FreeBSD but other BSD flavours should also be ok)
 
 # The concept
 

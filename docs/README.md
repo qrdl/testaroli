@@ -20,6 +20,9 @@ OS/arch combinations:
 | Linux   | Supported | Supported |
 | Windows | Supported | Supported |
 | macOS   | Supported | Supported |
+| BSD[^1] | Supported | Planned   |
+
+[^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
 
 ## Command line options
 
