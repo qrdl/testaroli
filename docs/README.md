@@ -30,6 +30,8 @@ It is recommended to switch off compiler optimisations and disable function inli
 
 `go test -gcflags="all=-N -l" ./...`
 
+If you plan to run tests from VS Code, add `"go.testFlags": [ "-gcflags", "all=-N -l" ]` to [settings.json](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file) file.
+
 Typical use:
 ```
 import . "github.com/qrdl/testaroli"

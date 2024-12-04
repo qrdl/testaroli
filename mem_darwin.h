@@ -33,7 +33,8 @@ static int resume_other_threads();
 
 int make_text_writable() {
     task_t task;
-    task_for_pid(mach_task_self(), getpid(), &task);
+    kern_return_t ret = task_for_pid(mach_task_self(), getpid(), &task);
+    CHECK_ERR("task_for_pid");
 
     // TEXT segment
     text_segment = 0x100000000; // segment expected initial address
@@ -41,7 +42,7 @@ int make_text_writable() {
     vm_region_basic_info_data_64_t info;
     mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT_64;
     memory_object_name_t object;
-    kern_return_t ret = mach_vm_region(task,  &text_segment, &text_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
+    ret = mach_vm_region(task,  &text_segment, &text_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
     CHECK_ERR("mach_vm_region");
 
     // DATA_CONST segment
@@ -56,7 +57,7 @@ int make_text_writable() {
     }
 
     // DATA segment
-    mach_vm_address_t data2_segment = data_segment + data_size;  // right after TEXT segment
+    mach_vm_address_t data2_segment = data_segment + data_size;  // right after DATA_CONST segment
     mach_vm_size_t data2_size = 0;
     ret = mach_vm_region(task,  &data2_segment, &data2_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object);
     CHECK_ERR("mach_vm_region");
@@ -83,7 +84,8 @@ int make_text_writable() {
     // execute recreate_text_segment() in TEMP segment (to allow destructive actions on TEXT)
     mem_patch func = recreate_text_segment;
     func = func - text_segment + temp_segment;  // recreate_text_segment() address in TEMP segment
-    func(text_segment, text_size, temp_segment);
+    ret = func(text_segment, text_size, temp_segment);
+    CHECK_ERR("recreate_text_segment");
 
     // back into re-created TEXT segment
 
@@ -98,7 +100,7 @@ int make_text_writable() {
 int overwrite_prolog(uint64_t func_addr, uint64_t buf, uint64_t bufsize) {
     mem_patch func = overwrite;
     func = func - text_segment + temp_segment;  // overwrite() address in TEMP segment
-    return func(buf, bufsize, func_addr);
+    return func(buf, bufsize, func_addr);   // error to be reported by the caller
 }
 
 // this function is executed in TEMP segment
@@ -107,10 +109,11 @@ int overwrite_prolog(uint64_t func_addr, uint64_t buf, uint64_t bufsize) {
 // this function must not update any globals because TEMP segment is not writable!
 static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, mach_vm_address_t tmp) {
     task_t task;
-    task_for_pid(mach_task_self(), getpid(), &task);
+    kern_return_t ret = task_for_pid(mach_task_self(), getpid(), &task);
+    CHECK_ERR("task_for_pid");
 
     // need to suspend all other threads to prevent them accessing TEXT while it is not there
-    kern_return_t ret = suspend_other_threads();
+    ret = suspend_other_threads();
     CHECK_ERR("suspend threads");
 
     ret = mach_vm_deallocate(task, text, size);
@@ -143,9 +146,10 @@ static int recreate_text_segment(mach_vm_address_t text, mach_vm_size_t size, ma
 // this function must not update any globals because TEMP segment is not writable!
 static int overwrite(mach_vm_address_t src, mach_vm_size_t size, mach_vm_address_t dest) {
     task_t task;
-    task_for_pid(mach_task_self(), getpid(), &task);
+    kern_return_t ret = task_for_pid(mach_task_self(), getpid(), &task);
+    CHECK_ERR("task_for_pid");
 
-    kern_return_t ret = mach_vm_protect(task, dest, size, 0, VM_PROT_READ|VM_PROT_WRITE);
+    ret = mach_vm_protect(task, dest, size, 0, VM_PROT_READ|VM_PROT_WRITE);
     CHECK_ERR("mach_vm_protect");
 
     ret = mach_vm_copy(task, src, size, dest);
@@ -160,11 +164,12 @@ static int overwrite(mach_vm_address_t src, mach_vm_size_t size, mach_vm_address
 // this function must not update any globals because TEMP segment is not writable!
 static int suspend_other_threads() {
     task_t task;
-    task_for_pid(mach_task_self(), getpid(), &task);
+    int ret = task_for_pid(mach_task_self(), getpid(), &task);
+    CHECK_ERR("task_for_pid");
+
     thread_act_array_t threads;
     mach_msg_type_number_t thread_count;
-
-    int ret = task_threads(task, &threads, &thread_count);
+    ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");
 
     // skip thread 0 which is the current one
@@ -180,16 +185,17 @@ static int suspend_other_threads() {
 // this function must not update any globals because TEMP segment is not writable!
 static int resume_other_threads() {
     task_t task;
-    task_for_pid(mach_task_self(), getpid(), &task);
+    int ret = task_for_pid(mach_task_self(), getpid(), &task);
+    CHECK_ERR("task_for_pid");
+
     thread_act_array_t threads;
     mach_msg_type_number_t thread_count;
-
-    int ret = task_threads(task, &threads, &thread_count);
+    ret = task_threads(task, &threads, &thread_count);
     CHECK_ERR("task_threads");
 
     // skip thread 0 which is the current one
     for (int i = 1; i < thread_count; i++) {
-        thread_resume(threads[i]);
+        ret = thread_resume(threads[i]);
         if (ret != 0)
             fprintf(stderr, "resume returned %d for thread %d\n", ret, i);
     }
