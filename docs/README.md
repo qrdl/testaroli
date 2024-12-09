@@ -20,15 +20,18 @@ OS/arch combinations:
 | Linux   | Supported | Supported |
 | Windows | Supported | Supported |
 | macOS   | Supported | Supported |
-| BSD[^1] | Supported | Planned   |
+| BSD[^1] | Supported | Supported[^2] |
 
 [^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
+[^2]: There is no way (yet) to test BSD on ARM64 in GitHub Actions, so such tests are executed separately
 
 ## Command line options
 
 It is recommended to switch off compiler optimisations and disable function inlining using `-gcflags="all=-N -l"` CLI option when running tests, like this:
 
 `go test -gcflags="all=-N -l" ./...`
+
+If you plan to run tests from VS Code, add `"go.testFlags": [ "-gcflags", "all=-N -l" ]` to [settings.json](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file) file.
 
 Typical use:
 ```
