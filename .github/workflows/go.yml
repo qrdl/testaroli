@@ -58,7 +58,7 @@ jobs:
         content: ${{ steps.gen_badge.outputs.BADGE }}
 
   freebsd:
-    name: Test on freebsd / amd64
+    name: Test on freebsd-14.1 / amd64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

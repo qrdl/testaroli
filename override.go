@@ -21,14 +21,17 @@ It should be used only for unit testing and never in production!
 
 This package modifies actual executable at runtime, therefore is OS- and CPU arch-specific.
 
-Supported OS/arch combinations:
-  - Linux / x86-64
-  - Linux / ARM64
-  - Windows / x86-64
-  - Windows / ARM64
-  - macOS / x86-64
-  - macOS / ARM64
-  - FreeBSD / x86-64 (tested on FreeBSD but other BSD flavours should also be ok)
+Supported OSes:
+
+  - Linux
+  - macOS
+  - Windows
+  - FreeBSD (other BSD flavours should also be ok)
+
+Supported CPU archs:
+
+  - x86-64
+  - ARM64 aka Aarch64
 
 # The concept
 
