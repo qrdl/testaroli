@@ -34,7 +34,7 @@ It is recommended to switch off compiler optimisations and disable function inli
 If you plan to run tests from VS Code, add `"go.testFlags": [ "-gcflags", "all=-N -l" ]` to [settings.json](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file) file.
 
 Typical use:
-```
+```go
 import . "github.com/qrdl/testaroli"
 
 // you want to test function foo() which in turn calls function bar(), so you
@@ -73,7 +73,7 @@ It is also possible to override functions and methods in other packages, includi
 from standard library, like in example below. Please note that method receiver becomes the
 first argument of the mock function.
 
-```
+```go
 func TestFoo(t *testing.T) {
     Override(TestingContext(t), (*os.File).Read, Once, func(f *os.File, b []byte) (n int, err error) {
         Expectation()
