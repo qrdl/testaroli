@@ -15,12 +15,12 @@ This package modifies actual executable at runtime, therefore is OS- and CPU arc
 
 OS/arch combinations:
 
-|         | x86-64    | ARM64     |
-|---------|-----------|-----------|
-| Linux   | Supported | Supported |
-| Windows | Supported | Supported |
-| macOS   | Supported | Supported |
-| BSD[^1] | Supported | Supported |
+|         | x86-64 | ARM64 |
+|---------|:------:|:-----:|
+| Linux   | ✅     | ✅    |
+| Windows | ✅     | ✅    |
+| macOS   | ✅     | ✅    |
+| BSD[^1] | ✅     | ✅    |
 
 [^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
 
@@ -42,7 +42,7 @@ import . "github.com/qrdl/testaroli"
 
 func foo() error {
     ...
-    if err := bar(baz); err != nil {
+    if err := bar(42); err != nil {
         return err
     }
     ...
@@ -92,5 +92,9 @@ func TestFoo(t *testing.T) {
     }
 }
 ```
+
+## Limitations
+
+Generic functions cannot be overridden, see issue [#33](https://github.com/qrdl/testaroli/issues/33) for details.
 
 See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
