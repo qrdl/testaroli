@@ -20,10 +20,9 @@ OS/arch combinations:
 | Linux   | Supported | Supported |
 | Windows | Supported | Supported |
 | macOS   | Supported | Supported |
-| BSD[^1] | Supported | Supported[^2] |
+| BSD[^1] | Supported | Supported |
 
 [^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
-[^2]: There is no way (yet) to test BSD on ARM64 in GitHub Actions, so such tests are executed separately
 
 ## Command line options
 
@@ -34,7 +33,7 @@ It is recommended to switch off compiler optimisations and disable function inli
 If you plan to run tests from VS Code, add `"go.testFlags": [ "-gcflags", "all=-N -l" ]` to [settings.json](https://code.visualstudio.com/docs/getstarted/settings#_settings-json-file) file.
 
 Typical use:
-```
+```go
 import . "github.com/qrdl/testaroli"
 
 // you want to test function foo() which in turn calls function bar(), so you
@@ -63,7 +62,7 @@ func TestBarFailing(t *testing.T) {
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
     }
-    it err = ExpectationsWereMet(); err != nil {
+    if err = ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
 }
@@ -73,7 +72,7 @@ It is also possible to override functions and methods in other packages, includi
 from standard library, like in example below. Please note that method receiver becomes the
 first argument of the mock function.
 
-```
+```go
 func TestFoo(t *testing.T) {
     Override(TestingContext(t), (*os.File).Read, Once, func(f *os.File, b []byte) (n int, err error) {
         Expectation()
