@@ -63,7 +63,7 @@ func TestBarFailing(t *testing.T) {
     if !errors.Is(err, ErrInvalid) {
         t.Errorf("unexpected %v", err)
     }
-    it err = ExpectationsWereMet(); err != nil {
+    if err = ExpectationsWereMet(); err != nil {
         t.Error(err)
     }
 }
