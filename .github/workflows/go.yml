@@ -65,7 +65,7 @@ jobs:
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
-          release: 15.0
+          release: "15.0"
           usesh: true
           copyback: false
           prepare: |
@@ -82,7 +82,7 @@ jobs:
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
-          release: 15.0
+          release: "15.0"
           arch: aarch64
           usesh: true
           copyback: false
