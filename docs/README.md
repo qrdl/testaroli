@@ -92,9 +92,9 @@ func TestFoo(t *testing.T) {
     }
 }
 ```
+See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
 
 ## Limitations
 
 Generic functions cannot be overridden, see issue [#33](https://github.com/qrdl/testaroli/issues/33) for details.
 
-See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
