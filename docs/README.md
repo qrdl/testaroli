@@ -22,7 +22,7 @@ OS/arch combinations:
 | macOS   | ✅     | ✅    |
 | BSD[^1] | ✅     | ✅    |
 
-[^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
+[^1]: This package was tested on FreeBSD 15.0 but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well
 
 ## Command line options
 
