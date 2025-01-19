@@ -20,10 +20,9 @@ OS/arch combinations:
 | Linux   | Supported | Supported |
 | Windows | Supported | Supported |
 | macOS   | Supported | Supported |
-| BSD[^1] | Supported | Supported[^2] |
+| BSD[^1] | Supported | Supported |
 
 [^1]: This package was tested on FreeBSD but it should work on other BSD flavours, such as NetBSD, OpenBSD and DragonFly BSD
-[^2]: There is no way (yet) to test BSD on ARM64 in GitHub Actions, so such tests are executed separately
 
 ## Command line options
 
