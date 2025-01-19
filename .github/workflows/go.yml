@@ -75,7 +75,7 @@ jobs:
             go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
   freebsd-arm64:
-    name: Test on freebsd-14.2 / amd64
+    name: Test on freebsd-14.2 / arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
