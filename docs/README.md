@@ -96,5 +96,6 @@ See more advanced usage examples in [examples](../examples) directory. For detai
 
 ## Limitations
 
-Generic functions cannot be overridden, see issue [#33](https://github.com/qrdl/testaroli/issues/33) for details.
+Generic functions cannot be overridden, see [details](generics.md).
 
+There are certain rules how to override interface methods, [details](interfaces.md).
