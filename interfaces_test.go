@@ -47,12 +47,13 @@ func TestOverrideInstanceMethodWithReference(t *testing.T) {
 	s1 := square{side: 5}
 	s2 := square{side: 7}
 
-	Override(TestingContext(t), s1.Area, Always, func() float64 {
+	// use a reference to call the overridden trampoline function
+	method := s1.Area
+
+	Override(TestingContext(t), method, Always, func() float64 {
 		return 10
 	})()
 
-	// use a reference to call the overridden trampoline function
-	method := s1.Area
 	if method() != 10 {
 		t.Errorf("Got unexpected result")
 	}
