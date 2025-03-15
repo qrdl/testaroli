@@ -48,23 +48,7 @@ func TestSquareArea(t *testing.T) {
 }
 
 ```
-but using the reference works (note that you don't need to specify method receiver in this case):
-```go
-func TestSquareArea(t *testing.T) {
-	s := square{side: 5}
-
-	Override(TestingContext(t), s.Area, Once, func() float64 {
-		return 10
-	})()
-
-	ref := s.Area
-	if ref() != 10 {
-		t.Errorf("Got unexpected result %v", s.Area())
-	}
-}
-
-```
-This is due to the fact that Go creates trampoline functions for method references, and when method is passed as an argument, go implicitly creates such a trampoline, as a result Testaroli overrides the trampoline function, not the actual method, so to call the overridden function one needs to call the trampoline function via the reference. Unfortunately there is no way to detect incorrect use of instance method override.
+This is due to the fact that Go creates trampoline functions for method references, and when method is passed as an argument, go implicitly creates such a trampoline, as a result Testaroli overrides the trampoline function, not the actual method. Unfortunately there is no way to detect incorrect use of instance method override.
 
 However it is possible to detect interface method overrides, and the code below would panic:
 ```go
