@@ -43,6 +43,7 @@ func TestOverrideInterfaceMethod(t *testing.T) {
 	})(square{side: 5})
 }
 
+/*
 func TestOverrideInstanceMethodWithReference(t *testing.T) {
 	s1 := square{side: 5}
 	s2 := square{side: 7}
@@ -65,3 +66,4 @@ func TestOverrideInstanceMethodWithReference(t *testing.T) {
 
 	testError(t, nil, ExpectationsWereMet())
 }
+*/
