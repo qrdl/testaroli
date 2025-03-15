@@ -209,7 +209,8 @@ the variable from the context from within mock function, for example:
 You can override regular functions and methods, including standard ones, but not the interface methods.
 */
 func Override[T any](ctx context.Context, org T, count int, mock T) T {
-	if reflect.ValueOf(org).Kind() != reflect.Func || reflect.ValueOf(mock).Kind() != reflect.Func {
+	orgVal := reflect.ValueOf(org)
+	if orgVal.Kind() != reflect.Func || reflect.ValueOf(mock).Kind() != reflect.Func {
 		panic("Override() can be called only for function/method")
 	}
 
@@ -219,10 +220,10 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 
 	Testing(ctx) // just to make sure the context is correct
 
-	orgPointer := reflect.ValueOf(org).UnsafePointer()
-	mockPointer := reflect.ValueOf(mock).UnsafePointer()
+	orgPointer := orgVal.UnsafePointer()
+	orgName := runtime.FuncForPC(uintptr(orgPointer)).Name()
 
-	// make sure override doesn't conflict for previous Always one
+	// make sure override doesn't conflict for previous 'Always' override
 	for _, e := range expectations {
 		if e.orgAddr == orgPointer {
 			if e.expCount == Always {
@@ -233,22 +234,39 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 		}
 	}
 
+	// check if org is interface method, e.g. its first param is an interface and org is
+	// a method of this interface
+	orgType := orgVal.Type()
+	if orgType.NumIn() > 0 {
+		println(orgName)
+		firstParam := orgType.In(0)
+		if firstParam.Kind() == reflect.Interface {
+			pkg := firstParam.PkgPath()
+			ifName := firstParam.Name()
+			for i := 0; i < firstParam.NumMethod(); i++ {
+				if fmt.Sprintf("%s.%s.%s", pkg, ifName, firstParam.Method(i).Name) == orgName {
+					panic("Override() cannot be called for interface method")
+				}
+			}
+		}
+	}
+
+	mockPointer := reflect.ValueOf(mock).UnsafePointer()
 	expectedCall := Expect{
 		ctx:      ctx,
 		expCount: count,
 		mockAddr: mockPointer,
 		orgAddr:  orgPointer,
-		orgName:  runtime.FuncForPC(uintptr(orgPointer)).Name(),
+		orgName:  orgName,
 	}
 
-	typ := reflect.ValueOf(org).Type()
 	v := reflect.MakeFunc(
-		typ,
+		orgType,
 		func(args []reflect.Value) []reflect.Value {
 			expectedCall.args = args
-			ret := make([]reflect.Value, typ.NumOut())
+			ret := make([]reflect.Value, orgType.NumOut())
 			for i := range ret {
-				ret[i] = reflect.Zero(typ.Out(i))
+				ret[i] = reflect.Zero(orgType.Out(i))
 			}
 			return ret
 		})
