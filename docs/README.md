@@ -2,8 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/qrdl/testaroli.svg)](https://pkg.go.dev/github.com/qrdl/testaroli)
 [![Go Report Card](https://goreportcard.com/badge/github.com/qrdl/testaroli)](https://goreportcard.com/report/github.com/qrdl/testaroli)
-![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)
-![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)
+[![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/go.yml)
+[![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/github-code-scanning/codeql)
 ![Coverage](https://gist.githubusercontent.com/qrdl/5bfca1854a183da5294ad00cb41ace31/raw/coverage.svg)
 
 Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
@@ -18,7 +18,7 @@ OS/arch combinations:
 |         | x86-64 | ARM64 |
 |---------|:------:|:-----:|
 | Linux   | ✅     | ✅    |
-| Windows | ✅     | -     |
+| Windows | ✅     | ✅    |
 | macOS   | ✅     | ✅    |
 | BSD[^1] | ✅     | ✅    |
 

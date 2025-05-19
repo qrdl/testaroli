@@ -1,6 +1,6 @@
 # How to override interface methods
 
-Testaroli package doesn't allow to directly override interface methods, however you can override a method of the type that implement the interface.
+Testaroli package doesn't allow to directly override interface methods, however you can override a method of the type that implements the interface.
 
 Assuming there is an interface and a type, implementing the interface:
 
