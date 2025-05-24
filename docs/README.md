@@ -18,7 +18,7 @@ OS/arch combinations:
 |         | x86-64 | ARM64 |
 |---------|:------:|:-----:|
 | Linux   | ✅     | ✅    |
-| Windows | ✅     | ✅    |
+| Windows | ✅     | ❌    |
 | macOS   | ✅     | ✅    |
 | BSD[^1] | ✅     | ✅    |
 
