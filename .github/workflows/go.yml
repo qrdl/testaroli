@@ -2,6 +2,10 @@ name: Test
 
 on: [push, workflow_dispatch]
 
+permissions:
+  contents: read
+  gist: write
+
 jobs:
   build:
     name: Test on ${{ matrix.os }} / ${{ matrix.arch }}
