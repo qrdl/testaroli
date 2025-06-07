@@ -4,7 +4,6 @@ on: [push, workflow_dispatch]
 
 permissions:
   contents: read
-  gist: write
 
 jobs:
   build:
