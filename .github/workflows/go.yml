@@ -26,7 +26,7 @@ jobs:
     - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: './go.mod'
 
@@ -59,14 +59,13 @@ jobs:
         content: ${{ steps.gen_badge.outputs.BADGE }}
 
   freebsd-amd64:
-    name: Test on freebsd-15.0 / amd64
+    name: Test on freebsd / amd64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "15.0"
           usesh: true
           copyback: false
           prepare: |
@@ -76,14 +75,13 @@ jobs:
             go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
   freebsd-arm64:
-    name: Test on freebsd-15.0 / arm64
+    name: Test on freebsd / arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "15.0"
           arch: aarch64
           usesh: true
           copyback: false
