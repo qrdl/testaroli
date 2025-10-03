@@ -18,7 +18,7 @@ jobs:
             arch: arm64
           - os: windows-latest
             arch: amd64
-          - os: macos-13  # all newer runners are arm64 only
+          - os: macos-15-intel
             arch: amd64
           - os: macos-15
             arch: arm64
