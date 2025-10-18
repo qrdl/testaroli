@@ -9,7 +9,7 @@
 Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
 It can be used only for unit testing and never in production.
 
-## Platforms suported
+## Platforms supported
 
 This package modifies actual executable at runtime, therefore is OS- and CPU arch-specific.
 
@@ -22,7 +22,7 @@ OS/arch combinations:
 | macOS   | ✅     | ✅    |
 | BSD[^1] | ✅     | ✅    |
 
-[^1]: This package was tested on FreeBSD 15.0 but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well
+[^1]: This package was tested on FreeBSD but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well
 
 ## Command line options
 
