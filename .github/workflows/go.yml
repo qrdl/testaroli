@@ -23,7 +23,7 @@ jobs:
           - os: macos-15
             arch: arm64
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -62,7 +62,7 @@ jobs:
     name: Test on freebsd / amd64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
@@ -78,7 +78,7 @@ jobs:
     name: Test on freebsd / arm64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
