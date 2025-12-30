@@ -5,6 +5,7 @@
 [![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/go.yml)
 [![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/github-code-scanning/codeql)
 ![Coverage](https://gist.githubusercontent.com/qrdl/5bfca1854a183da5294ad00cb41ace31/raw/coverage.svg)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli.svg?type=small)](https://app.fossa.io/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli?ref=badge_small)
 
 Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
 It can be used only for unit testing and never in production.
