@@ -16,14 +16,16 @@ This package modifies actual executable at runtime, therefore is OS- and CPU arc
 
 OS/arch combinations:
 
-|         | x86-64 | ARM64 |
-|---------|:------:|:-----:|
-| Linux   | ✅     | ✅    |
-| Windows | ✅     | ❌    |
-| macOS   | ✅     | ✅    |
-| BSD[^1] | ✅     | ✅    |
+|         | x86-64 | ARM64  |
+|---------|:------:|:------:|
+| Linux   | ✅     | ✅     |
+| Windows | ✅     | ✅[^1] |
+| macOS   | ✅     | ✅     |
+| BSD[^2] | ✅     | ✅     |
 
-[^1]: This package was tested on FreeBSD but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well
+[^1]: I only could get it working using [MSYS CLANGARM64](https://www.msys2.org/docs/arm64/) shell, see [this issue](https://github.com/qrdl/testaroli/issues/44) for more details.
+
+[^2]: This package was tested on FreeBSD but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well.
 
 ## Command line options
 
