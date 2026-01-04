@@ -25,7 +25,7 @@ Supported OSes:
 
   - Linux
   - macOS
-  - Windows (not tested on ARM64)
+  - Windows
   - FreeBSD (other BSD flavours should also be ok)
 
 Supported CPU archs:
