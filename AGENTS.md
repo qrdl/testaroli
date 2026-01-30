@@ -133,9 +133,7 @@ testaroli/
 │   └── examples/methods/    # Method override examples
 │
 └── Build/Release
-    ├── go.mod               # Module definition
-    ├── Makefile             # Build automation
-    └── publish.sh           # Release script
+    └── go.mod               # Module definition
 ```
 
 ## Usage Patterns
@@ -177,10 +175,9 @@ Override(TestingContext(t), (*os.File).Read, Once,
 
 ## Development Workflow
 
-### Building
+### Testing
 ```bash
-make              # Build project
-go test -gcflags="all=-N -l" ./...  # Run tests
+go test -gcflags="all=-N -l" ./...  # Run tests with optimizations disabled
 ```
 
 ### Testing Strategy
