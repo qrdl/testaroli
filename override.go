@@ -238,7 +238,6 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	// a method of this interface
 	orgType := orgVal.Type()
 	if orgType.NumIn() > 0 {
-		println(orgName)
 		firstParam := orgType.In(0)
 		if firstParam.Kind() == reflect.Interface {
 			pkg := firstParam.PkgPath()
