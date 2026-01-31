@@ -32,7 +32,8 @@ Testaroli is a specialized Go package that enables runtime binary modification t
 #### 1. Override System (`override.go`)
 - Main entry point for function/method overriding
 - Manages override chain with different call count modes:
-  - **Once/Twice/Thrice:** Fixed number of calls before restoration
+  - **Once** One time
+  - **Fixed count (N > 0):** Any positive integer number of calls before restoration (e.g., 1, 2, 3, ...)
   - **Unlimited:** Active until manual reset
   - **Always:** Always effective, outside the chain
 - Platform-specific implementations for memory protection
@@ -167,7 +168,7 @@ Override(TestingContext(t), (*os.File).Read, Once,
 
 ## Dependencies
 
-- **golang.org/x/sys v0.39.0** - System-level operations (memory protection, syscalls)
+- **golang.org/x/sys v0.40.0** - System-level operations (memory protection, syscalls)
 - **testing** (stdlib) - Integration with Go testing framework
 - **reflect** (stdlib) - Runtime type inspection and manipulation
 - **runtime** (stdlib) - Access to runtime internals
@@ -225,5 +226,5 @@ Versions v0.1.0 through v0.3.2 are retracted - avoid using these versions.
 
 ---
 
-*Generated: 2026-01-30*  
+*Generated: 2026-01-31*
 *Analysis Type: Project Structure, Functionality, and AI Agent Guidance*
