@@ -37,7 +37,7 @@ jobs:
       run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
     - name: Upload coverage reports to Codecov
-      # if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
