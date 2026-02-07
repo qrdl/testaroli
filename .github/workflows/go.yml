@@ -36,27 +36,11 @@ jobs:
     - name: Unit tests
       run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
-    - id: cover
-      name: Calculate coverage
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
-      run: |
-        echo "COVERAGE=$(go tool cover -func coverage.out | grep total: | awk '{ print $3 }')" >> $GITHUB_OUTPUT
-
-    - id: gen_badge
-      name: Generate badge
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
-      run: echo "BADGE=$(curl https://img.shields.io/badge/Coverage-${{ steps.cover.outputs.COVERAGE }}25-limegreen)" >> $GITHUB_OUTPUT
-
-    - name: Update badge
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
-      uses: gorgbus/gist-actions@main
-      env:
-        GITHUB_TOKEN: ${{ secrets.GIST_TOKEN }}
+    - name: Upload coverage reports to Codecov
+      # if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
+      uses: codecov/codecov-action@v5
       with:
-        action: "update"
-        gist_id: "5bfca1854a183da5294ad00cb41ace31"
-        file_name: "coverage.svg"
-        content: ${{ steps.gen_badge.outputs.BADGE }}
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   freebsd-amd64:
     name: Test on freebsd / amd64
