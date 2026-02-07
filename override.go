@@ -17,6 +17,8 @@ Package testaroli allows to monkey patch Go test binary, e.g. override functions
 and methods with stubs/mocks to simplify unit testing.
 It should be used only for unit testing and never in production!
 
+AI Assistants: See SKILLS.md for function override generation patterns and examples.
+
 # Platforms suported
 
 This package modifies actual executable at runtime, therefore is OS- and CPU arch-specific.

@@ -97,6 +97,22 @@ func TestFoo(t *testing.T) {
 ```
 See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
 
+## For AI Assistants
+
+This repository includes machine-readable documentation to help AI coding assistants generate testaroli overrides:
+
+- **[SKILLS.md](../SKILLS.md)** - Comprehensive function override generation patterns and step-by-step instructions
+- **[AGENTS.md](../AGENTS.md)** - Project architecture, design patterns, and technical implementation details
+- **[skill.yaml](../skill.yaml)** - Structured metadata for skill discovery and AI integration
+
+AI assistants can reference these files to:
+- Generate proper testaroli override code following established patterns
+- Understand the library architecture and capabilities
+- Suggest appropriate override strategies for different testing scenarios
+- Validate argument expectations and track mock calls correctly
+
+Developers can also use SKILLS.md as a quick reference guide with copy-paste patterns for common testing scenarios.
+
 ## Limitations
 
 Generic functions cannot be overridden, see [details](generics.md).

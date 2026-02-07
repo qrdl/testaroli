@@ -1,0 +1,130 @@
+# skill.yaml - Testaroli AI Skill Metadata
+# This file helps AI assistants discover and use testaroli capabilities
+
+skill:
+  name: "Overriding Go Functions in Unit Tests"
+  description: "Mock and override Go functions, methods, and standard library calls using testaroli library for comprehensive unit testing"
+  language: "go"
+  category: "testing"
+  version: "1.0.0"
+  
+  tags:
+    - testing
+    - mocking
+    - unit-tests
+    - go
+    - monkey-patching
+    - test-automation
+    - function-override
+    - method-mocking
+  
+  documentation:
+    skills: "SKILLS.md"
+    architecture: "AGENTS.md"
+    main: "docs/README.md"
+    examples: "examples/"
+    api_reference: "https://pkg.go.dev/github.com/qrdl/testaroli"
+  
+  patterns:
+    - name: "Simple Function Override"
+      description: "Override a package function with mock implementation"
+      file: "SKILLS.md"
+      section: "Pattern 1"
+      use_case: "Basic function mocking with expectation tracking"
+    
+    - name: "Function with Argument Validation"
+      description: "Override function and validate arguments"
+      file: "SKILLS.md"
+      section: "Pattern 2"
+      use_case: "Ensure function receives expected parameters"
+    
+    - name: "Method Override"
+      description: "Override methods with receiver as first argument"
+      file: "SKILLS.md"
+      section: "Pattern 3"
+      use_case: "Mock object methods for testing"
+    
+    - name: "Standard Library Override"
+      description: "Override functions from Go standard library"
+      file: "SKILLS.md"
+      section: "Pattern 4"
+      use_case: "Mock file I/O, network operations, system calls"
+    
+    - name: "Error Simulation"
+      description: "Simulate error conditions for testing"
+      file: "SKILLS.md"
+      section: "Pattern 5"
+      use_case: "Test error handling and recovery logic"
+    
+    - name: "Override Chain"
+      description: "Create sequence of different return values"
+      file: "SKILLS.md"
+      section: "Pattern 6"
+      use_case: "Test code with multiple calls to same function"
+    
+    - name: "Multiple Times Override"
+      description: "Override applies for N consecutive calls"
+      file: "SKILLS.md"
+      section: "Pattern 7"
+      use_case: "Mock function for fixed number of calls"
+    
+    - name: "Unlimited Override"
+      description: "Override active for entire test duration"
+      file: "SKILLS.md"
+      section: "Pattern 8"
+      use_case: "Mock function for all calls in test"
+    
+    - name: "Always Override"
+      description: "Permanent override outside call chain"
+      file: "SKILLS.md"
+      section: "Pattern 9"
+      use_case: "Global mock not participating in chain"
+  
+  capabilities:
+    - "Override package functions"
+    - "Override methods (instance and pointer receivers)"
+    - "Override standard library functions"
+    - "Chain multiple overrides in sequence"
+    - "Validate function call arguments"
+    - "Track expectation fulfillment"
+    - "Simulate error conditions"
+    - "Control number of override applications"
+    - "Capture and verify call patterns"
+    - "Cross-package mocking"
+  
+  requirements:
+    compiler_flags:
+      - "-gcflags=all=-N -l"
+    reason: "Disables optimizations and inlining for runtime patching"
+    
+    platforms:
+      os: ["linux", "macos", "windows", "freebsd", "netbsd", "openbsd", "dragonfly"]
+      arch: ["amd64", "arm64"]
+    
+    go_version: "1.24.0+"
+  
+  limitations:
+    - "Generic functions have limited support (call via reference only)"
+    - "Cannot override inlined functions"
+    - "Platform-dependent (OS and architecture specific)"
+    - "Testing only - never use in production"
+    - "Requires specific compiler flags"
+  
+  related_documentation:
+    generics: "docs/generics.md"
+    interfaces: "docs/interfaces.md"
+    macos_notes: "docs/macOS.md"
+  
+  repository:
+    url: "https://github.com/qrdl/testaroli"
+    license: "Apache License 2.0"
+  
+  ai_usage:
+    instruction: "When generating testaroli overrides, reference SKILLS.md for patterns and AGENTS.md for architecture understanding"
+    quick_start: "Override(TestingContext(t), targetFunc, Once, mockFunc)()"
+    key_functions:
+      - "Override() - Create function/method override"
+      - "Expectation() - Track mock call"
+      - "CheckArgs() - Validate arguments"
+      - "ExpectationsWereMet() - Verify all mocks called"
+      - "Reset()/ResetAll() - Manual override cleanup"
