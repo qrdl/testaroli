@@ -495,3 +495,86 @@ func testError(t *testing.T, expected, actual error) {
 		return
 	}
 }
+
+// riskyOperation simulates a function that might panic
+func riskyOperation(input string) string {
+	return "success: " + input
+}
+
+// safeWrapper catches panics from riskyOperation
+func safeWrapper(input string) (result string, recovered bool, panicValue interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			recovered = true
+			panicValue = r
+		}
+	}()
+	result = riskyOperation(input)
+	return
+}
+
+func TestMockWithPanic(t *testing.T) {
+	ctx := TestingContext(t)
+
+	// Override riskyOperation to panic
+	Override(ctx, riskyOperation, Once, func(input string) string {
+		Expectation().CheckArgs(input)
+		panic("simulated critical failure")
+	})("test-input")
+
+	// Call the safe wrapper which should catch the panic
+	result, recovered, panicValue := safeWrapper("test-input")
+
+	// Verify the panic was caught
+	if !recovered {
+		t.Errorf("Expected panic to be recovered")
+	}
+
+	if result != "" {
+		t.Errorf("Expected empty result after panic, got: %s", result)
+	}
+
+	if panicValue != "simulated critical failure" {
+		t.Errorf("Expected panic value 'simulated critical failure', got: %v", panicValue)
+	}
+
+	// Verify all expectations were met
+	testError(t, nil, ExpectationsWereMet())
+}
+
+func TestMockWithPanicMultipleCalls(t *testing.T) {
+	ctx := TestingContext(t)
+
+	// First call panics
+	Override(ctx, riskyOperation, Once, func(input string) string {
+		Expectation().CheckArgs(input)
+		panic("first panic")
+	})("first")
+
+	// Second call returns normally
+	Override(ctx, riskyOperation, Once, func(input string) string {
+		Expectation().CheckArgs(input)
+		return "recovered"
+	})("second")
+
+	// First call - should panic
+	_, recovered1, panicValue1 := safeWrapper("first")
+	if !recovered1 {
+		t.Errorf("Expected first call to panic")
+	}
+	if panicValue1 != "first panic" {
+		t.Errorf("Expected panic value 'first panic', got: %v", panicValue1)
+	}
+
+	// Second call - should succeed
+	result2, recovered2, _ := safeWrapper("second")
+	if recovered2 {
+		t.Errorf("Expected second call to not panic")
+	}
+	if result2 != "recovered" {
+		t.Errorf("Expected result 'recovered', got: %s", result2)
+	}
+
+	// Verify all expectations were met
+	testError(t, nil, ExpectationsWereMet())
+}
