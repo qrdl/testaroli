@@ -52,7 +52,7 @@ Write replacement function matching the target's signature:
 func(args...) returnTypes {
     // Optional: Verify arguments
     Expectation().CheckArgs(expectedArgs...)
-    
+
     // Return mock data
     return mockValues...
 }
@@ -70,12 +70,12 @@ Override(TestingContext(t), targetFunc, Once, mockFunc)(expectedArgs...)
 ```go
 func TestExample(t *testing.T) {
     // Override a package function
-    Override(TestingContext(t), mypackage.GetData, Once, 
+    Override(TestingContext(t), mypackage.GetData, Once,
         func() string {
             Expectation()  // Track that mock was called
             return "mock data"
         })()
-    
+
     // Test code that calls mypackage.GetData()
     result := mypackage.GetData()
     // Assertions...
@@ -86,13 +86,13 @@ func TestExample(t *testing.T) {
 ```go
 func TestWithArgs(t *testing.T) {
     expectedID := 42
-    
+
     Override(TestingContext(t), mypackage.FetchUser, Once,
         func(id int) (*User, error) {
             Expectation().CheckArgs(id)  // Verify argument matches
             return &User{ID: id, Name: "Mock User"}, nil
         })(expectedID)  // Declare expected argument
-    
+
     // Test code...
 }
 ```
@@ -106,7 +106,7 @@ func TestMethodOverride(t *testing.T) {
             Expectation().CheckArgs(sql)
             return &Result{Rows: []Row{mockRow}}, nil
         })("SELECT * FROM users")
-    
+
     // Test code using Database.Query()...
 }
 ```
@@ -115,14 +115,14 @@ func TestMethodOverride(t *testing.T) {
 ```go
 func TestFileRead(t *testing.T) {
     mockData := []byte("test content")
-    
+
     Override(TestingContext(t), (*os.File).Read, Once,
         func(f *os.File, b []byte) (int, error) {
             Expectation()
             copy(b, mockData)
             return len(mockData), nil
         })()
-    
+
     // Test code that opens and reads a file...
 }
 ```
@@ -135,7 +135,7 @@ func TestErrorHandling(t *testing.T) {
             Expectation().CheckArgs(data)
             return errors.New("mock error: database unavailable")
         })("test data")
-    
+
     // Test error handling code...
 }
 ```
@@ -149,21 +149,21 @@ func TestMultipleCalls(t *testing.T) {
             Expectation()
             return "first"
         })()
-    
+
     // Second call returns "second"
     Override(TestingContext(t), mypackage.GetNext, Once,
         func() string {
             Expectation()
             return "second"
         })()
-    
+
     // Third call returns "third"
     Override(TestingContext(t), mypackage.GetNext, Once,
         func() string {
             Expectation()
             return "third"
         })()
-    
+
     // Test code that calls GetNext() three times...
     first := mypackage.GetNext()   // Returns "first"
     second := mypackage.GetNext()  // Returns "second"
@@ -175,14 +175,14 @@ func TestMultipleCalls(t *testing.T) {
 ```go
 func TestRepeatedCalls(t *testing.T) {
     callCount := 5
-    
+
     // Override applies for 5 calls
     Override(TestingContext(t), mypackage.GetValue, callCount,
         func() int {
             Expectation()
             return 42
         })()
-    
+
     // First 5 calls return 42, then original function is restored
     for i := 0; i < 5; i++ {
         value := mypackage.GetValue()  // Returns 42
@@ -199,7 +199,7 @@ func TestUnlimited(t *testing.T) {
             Expectation()
             return 42  // Deterministic for testing
         })()
-    
+
     // All calls in this test return 42
     // Override automatically restored when test ends
 }
@@ -213,7 +213,7 @@ func TestAlways(t *testing.T) {
         func() *Config {
             return &Config{Debug: true}
         })
-    
+
     // No need to call Expectation() for Always overrides
     // They don't participate in the call chain
 }
@@ -225,14 +225,14 @@ func TestAlways(t *testing.T) {
 ```go
 func TestStateful(t *testing.T) {
     callCount := 0
-    
+
     Override(TestingContext(t), mypackage.Counter, Unlimited,
         func() int {
             Expectation()
             callCount++
             return callCount
         })()
-    
+
     // Each call returns incrementing value
 }
 ```
@@ -248,7 +248,7 @@ func TestConditional(t *testing.T) {
             }
             return "processed: " + input, nil
         })()
-    
+
     // Mock behaves differently based on input
 }
 ```
@@ -257,15 +257,15 @@ func TestConditional(t *testing.T) {
 ```go
 func TestCapture(t *testing.T) {
     var capturedArgs []string
-    
+
     Override(TestingContext(t), mypackage.LogMessage, Unlimited,
         func(msg string) {
             Expectation()
             capturedArgs = append(capturedArgs, msg)
         })()
-    
+
     // Test code...
-    
+
     // Verify captured arguments
     if len(capturedArgs) != 3 {
         t.Errorf("Expected 3 calls, got %d", len(capturedArgs))
@@ -282,9 +282,9 @@ func TestWithValidation(t *testing.T) {
         func(arg string) {
             Expectation().CheckArgs(arg)
         })("expected")
-    
+
     // Test code...
-    
+
     // Verify all overrides were called as expected
     ExpectationsWereMet(t)
 }
@@ -297,9 +297,9 @@ func TestManual(t *testing.T) {
         func() {
             Expectation()
         })()
-    
+
     mypackage.Work()
-    
+
     // Check if override was called
     if !override.WasCalled() {
         t.Error("Expected Work() to be called")

@@ -1,5 +1,5 @@
 // This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
-// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+// Copyright (c) 2024-2026 Ilya Caramishev. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,8 +39,12 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 
 	newPrologue := make([]byte, instrLength)
 	jumpLocation := (uintptr(mockPointer) - (uintptr(orgPointer))) / uintptr(instrLength)
-	binary.NativeEndian.PutUint32(newPrologue, uint32(jumpLocation))
-	newPrologue[3] = jmpInstrCode
+	// ARM64 B (branch) instruction format:
+	//   Bits [31:26]: opcode (0b000101 for unconditional branch)
+	//   Bits [25:0]:  signed 26-bit offset in instructions (not bytes)
+	// We must properly combine the opcode and offset without clobbering offset bits
+	instruction := uint32(jumpLocation&0x03FFFFFF) | (uint32(jmpInstrCode) << 24)
+	binary.NativeEndian.PutUint32(newPrologue, instruction)
 
 	replacePrologue(orgPointer, newPrologue) // OS-specific
 
