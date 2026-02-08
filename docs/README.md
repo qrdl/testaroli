@@ -119,6 +119,17 @@ Developers can also use SKILLS.md as a quick reference guide with copy-paste pat
 
 ## Limitations
 
-Generic functions cannot be overridden, see [details](generics.md).
+### Generic Functions
 
-There are certain rules how to override interface methods, [details](interfaces.md).
+Override generic functions by using function references instead of direct calls. The [Generic Functions Guide](generics.md) shows complete patterns and examples for working with generics.
+
+### Interface Methods
+
+Interface methods must be overridden at the concrete type level, not the interface level. Override the type method that implements the interface instead. See the [Interface Methods Guide](interfaces.md) for patterns and examples.
+
+### Other Constraints
+
+- **Testing only** - Never use testaroli in production code
+- **Compiler flags required** - Must use `-gcflags="all=-N -l"` to disable optimizations and inlining
+- **Platform-specific** - Only works on supported OS/architecture combinations (see table above)
+
