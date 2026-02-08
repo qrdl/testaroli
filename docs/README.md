@@ -97,6 +97,10 @@ func TestFoo(t *testing.T) {
 ```
 See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
 
+## Troubleshooting
+
+Having issues? Check the [Troubleshooting Guide](troubleshooting.md) for solutions to common problems.
+
 ## For AI Assistants
 
 This repository includes machine-readable documentation to help AI coding assistants generate testaroli overrides:

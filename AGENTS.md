@@ -2,10 +2,10 @@
 
 ## Project Overview
 
-**Name:** Testaroli  
-**Repository:** github.com/qrdl/testaroli  
-**Language:** Go (1.24.0+)  
-**License:** Apache License 2.0  
+**Name:** Testaroli
+**Repository:** github.com/qrdl/testaroli
+**Language:** Go (1.24.0+)
+**License:** Apache License 2.0
 **Purpose:** Monkey patching library for Go unit testing
 
 Testaroli is a specialized Go package that enables runtime binary modification to override functions and methods with stubs/mocks during unit testing. It achieves this through low-level memory manipulation and executable patching.
@@ -149,7 +149,7 @@ Override(TestingContext(t), targetFunc, Once, func(args...) returnType {
 
 ### Method Override
 ```go
-Override(TestingContext(t), (*Type).Method, Once, 
+Override(TestingContext(t), (*Type).Method, Once,
     func(receiver *Type, args...) returnType {
         Expectation()
         return mockResult
@@ -158,7 +158,7 @@ Override(TestingContext(t), (*Type).Method, Once,
 
 ### Standard Library Override
 ```go
-Override(TestingContext(t), (*os.File).Read, Once, 
+Override(TestingContext(t), (*os.File).Read, Once,
     func(f *os.File, b []byte) (int, error) {
         Expectation()
         copy(b, []byte("mock data"))
