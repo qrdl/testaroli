@@ -42,3 +42,20 @@ func TestOverrideInterfaceMethod(t *testing.T) {
 		return 10
 	})(square{side: 5})
 }
+
+func TestOverrideInstanceMethodWithReference(t *testing.T) {
+	s1 := square{side: 5}
+
+	// use a reference to call the overridden trampoline function
+	method := s1.Area
+
+	Override(TestingContext(t), method, Always, func() float64 {
+		return 10
+	})()
+
+	if method() != 10 {
+		t.Errorf("Got unexpected result")
+	}
+
+	testError(t, nil, ExpectationsWereMet())
+}
