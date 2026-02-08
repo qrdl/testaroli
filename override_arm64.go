@@ -1,5 +1,5 @@
 // This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
-// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+// Copyright (c) 2024-2026 Ilya Caramishev. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

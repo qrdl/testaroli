@@ -1,5 +1,5 @@
 // This file is part of Testaroli project, available at https://github.com/qrdl/testaroli
-// Copyright (c) 2024 Ilya Caramishev. All rights reserved.
+// Copyright (c) 2024-2026 Ilya Caramishev. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -225,6 +225,16 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	orgPointer := orgVal.UnsafePointer()
 	orgName := runtime.FuncForPC(uintptr(orgPointer)).Name()
 
+	// check if org is a generic function trampoline
+	if isGenericFunction(orgName) {
+		panic("Overriding generic functions has limited support. Direct calls like " +
+			"`genericFunc(x)` cannot be mocked because they bypass the trampoline. " +
+			"To test generic functions, always use them via a reference:\n" +
+			"  fn := genericFunc[T]\n" +
+			"  result := fn(x)\n" +
+			"See docs/generics.md for more details.")
+	}
+
 	// make sure override doesn't conflict for previous 'Always' override
 	for _, e := range expectations {
 		if e.orgAddr == orgPointer {
@@ -292,6 +302,15 @@ func numLeadingAlways() int {
 		}
 	}
 	return len(expectations)
+}
+
+// isGenericFunction checks if a function name indicates a generic function trampoline.
+// Go compiler generates trampolines for generic function instantiations with "[...]" in the name.
+func isGenericFunction(name string) bool {
+	// Generic function trampolines have "[...]" in their name
+	// e.g., "main.genericFunc[...]" or "pkg.MyFunc[...]"
+	return len(name) > 0 && (name[len(name)-1] == ']' ||
+		(len(name) > 4 && name[len(name)-4:] == "[...]"))
 }
 
 /*
