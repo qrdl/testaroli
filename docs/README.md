@@ -7,12 +7,38 @@
 [![codecov](https://codecov.io/github/qrdl/testaroli/graph/badge.svg?token=V51OL05VQ1)](https://codecov.io/github/qrdl/testaroli)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli.svg?type=small)](https://app.fossa.io/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli?ref=badge_small)
 
-Package `testaroli` allows to [monkey patch](https://en.wikipedia.org/wiki/Monkey_patch) Go test binary, e.g. override functions and methods with stubs/mocks to simplify unit testing.
-It can be used only for unit testing and never in production.
+Package `testaroli` provides runtime function and method overriding for Go unit tests through binary patching. This enables testing of error paths and exceptional conditions without requiring dependency injection or interface wrappers.
+
+This is a testing utility only. It modifies executable code at runtime and must not be used in production.
+
+## Use Cases
+
+`Testaroli` addresses several testing challenges in Go:
+
+- Testing error handling when external dependencies fail (network, filesystem, database)
+- Exercising exceptional code paths that are hard to trigger naturally
+- Testing functions that call standard library or third-party code directly
+- Isolating units under test from their dependencies without modifying production code
+- Testing legacy codebases where adding dependency injection would require extensive refactoring
+- Reducing test fragility - changes to internal implementations (like SQL queries or API calls) don't require updating mocks in every affected test
+
+As a practical demonstration, `testaroli`'s own test suite uses itself to test exceptional code paths, achieving 99%+ test coverage.
+
+## How It Works
+
+`Testaroli` operates by:
+1. Saving the original function prologue (first bytes of machine code)
+2. Overwriting the function entry point with a jump to the mock implementation
+3. Temporarily modifying memory page protections to allow code modification
+4. Restoring the original prologue after the specified number of calls
+
+This approach requires platform-specific implementations for memory protection APIs (mprotect on Unix, VirtualProtect on Windows) and CPU architecture-specific instruction handling (x86-64, ARM64).
+
+Note that macOS requires additional complexity due to security restrictions. See [macOS.md](macOS.md) for implementation details.
 
 ## Platforms supported
 
-This package modifies actual executable at runtime, therefore is OS- and CPU arch-specific.
+`Testaroli` modifies the actual executable at runtime, therefore is OS and CPU architecture-specific.
 
 OS/arch combinations:
 
@@ -23,7 +49,7 @@ OS/arch combinations:
 | macOS   | ✅     | ✅     |
 | BSD[^2] | ✅     | ✅     |
 
-[^1]: I only could get it working using [MSYS CLANGARM64](https://www.msys2.org/docs/arm64/) shell, see [this issue](https://github.com/qrdl/testaroli/issues/44) for more details.
+[^1]: I could only get it working using [MSYS CLANGARM64](https://www.msys2.org/docs/arm64/) shell, see [this issue](https://github.com/qrdl/testaroli/issues/44) for more details.
 
 [^2]: This package was tested on FreeBSD but it should work on other BSD flavours (NetBSD, OpenBSD and DragonFly BSD) as well.
 
@@ -39,10 +65,7 @@ Typical use:
 ```go
 import . "github.com/qrdl/testaroli"
 
-// you want to test function foo() which in turn calls function bar(), so you
-// override function bar() to check whether it is called with correct argument
-// and to return predefined result
-
+// Test function foo() which calls bar() internally.
 func foo() error {
     ...
     if err := bar(42); err != nil {
@@ -56,6 +79,8 @@ func bar(baz int) error {
 }
 
 func TestBarFailing(t *testing.T) {
+    // Override bar() to verify it receives the correct
+    // argument and returns a predefined result.
     Override(TestingContext(t), bar, Once, func(a int) error {
         Expectation().CheckArgs(a)  // <-- arg value checked here
         return ErrInvalid
@@ -71,8 +96,7 @@ func TestBarFailing(t *testing.T) {
 }
 ```
 
-It is also possible to override functions and methods in other packages, including ones
-from standard library, like in example below. Please note that method receiver becomes the
+It is also possible to override functions and methods in other packages, including ones from standard library, as in the example below. Note that method receiver becomes the
 first argument of the mock function.
 
 ```go
@@ -95,7 +119,7 @@ func TestFoo(t *testing.T) {
     }
 }
 ```
-See more advanced usage examples in [examples](../examples) directory. For detailed documentaion see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
+See more advanced usage examples in [examples](../examples) directory. For detailed documentation see [Go reference](https://pkg.go.dev/github.com/qrdl/testaroli).
 
 ## Troubleshooting
 
