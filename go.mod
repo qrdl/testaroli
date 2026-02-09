@@ -4,6 +4,6 @@ go 1.24.0
 
 toolchain go1.24.4
 
-require golang.org/x/sys v0.40.0
+require golang.org/x/sys v0.41.0
 
 retract [v0.1.0, v0.3.2]
