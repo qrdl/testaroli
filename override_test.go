@@ -3,6 +3,7 @@ package testaroli
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -577,4 +578,21 @@ func TestMockWithPanicMultipleCalls(t *testing.T) {
 
 	// Verify all expectations were met
 	testError(t, nil, ExpectationsWereMet())
+}
+
+func TestPanicInExpectation(t *testing.T) {
+	Override(TestingContext(t), runtime.Caller, Once, func(skip int) (pc uintptr, file string, line int, ok bool) {
+		//	Don't call expectation here to avoid infinite recursion
+		return 0, "", 0, false
+	})
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		} else {
+			// Expectaion() didn't finish and left the system in an inconsistent state, so we need to reset it to avoid affecting other tests
+			Reset(runtime.Caller)
+		}
+	}()
+
+	Expectation()
 }
