@@ -2,9 +2,9 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/qrdl/testaroli.svg)](https://pkg.go.dev/github.com/qrdl/testaroli)
 [![Go Report Card](https://goreportcard.com/badge/github.com/qrdl/testaroli)](https://goreportcard.com/report/github.com/qrdl/testaroli)
-[![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/go.yml)
-[![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg)](https://github.com/qrdl/testaroli/actions/workflows/github-code-scanning/codeql)
-[![codecov](https://codecov.io/github/qrdl/testaroli/graph/badge.svg?token=V51OL05VQ1)](https://codecov.io/github/qrdl/testaroli)
+[![Tests](https://github.com/qrdl/testaroli/actions/workflows/go.yml/badge.svg?query=branch%3Amain)](https://github.com/qrdl/testaroli/actions/workflows/go.yml?query=branch%3Amain)
+[![CodeQL](https://github.com/qrdl/testaroli/workflows/CodeQL/badge.svg?query=branch%3Amain)](https://github.com/qrdl/testaroli/actions/workflows/github-code-scanning/codeql?query=branch%3Amain)
+[![codecov](https://codecov.io/github/qrdl/testaroli/graph/badge.svg)](https://codecov.io/github/qrdl/testaroli)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli.svg?type=small)](https://app.fossa.io/projects/git%2Bgithub.com%2Fqrdl%2Ftestaroli?ref=badge_small)
 
 Package `testaroli` provides runtime function and method overriding for Go unit tests through binary patching. This enables testing of error paths and exceptional conditions without requiring dependency injection or interface wrappers.
