@@ -35,7 +35,7 @@ const (
 )
 
 var expectations []*Expect
-var ErrExpectationsNotMet = errors.New("expectaions were not met")
+var ErrExpectationsNotMet = errors.New("expectations were not met")
 
 /*
 Override overrides <org> with <mock>. The signatures of <org> and <mock> must match exactly,

@@ -47,7 +47,7 @@ func TestTwoPages(t *testing.T) {
 
 func TestPanicInReplacePrologue(t *testing.T) {
 	Override(TestingContext(t), makeMemRX, Always, func(ptr unsafe.Pointer, size int) error {
-		//	Don't call expectation here to avoid infinite recursion
+		//	Don't call Expectation() here to avoid infinite recursion
 		if ptr == unsafe.Pointer(uintptr(0)) {
 			return unix.EPERM // simulate failure in unix.Mprotect()
 		}
@@ -62,7 +62,7 @@ func TestPanicInReplacePrologue(t *testing.T) {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")
 		} else {
-			// Expectaion() didn't finish and left the system in an inconsistent state, so we need to reset it to avoid affecting other tests
+			// Expectation() didn't finish and left the system in an inconsistent state, so we need to reset it to avoid affecting other tests
 			Reset(makeMemRX)
 		}
 	}()
