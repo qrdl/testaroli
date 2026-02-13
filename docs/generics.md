@@ -30,9 +30,13 @@ func TestFoo(t *testing.T) {
 
 ## What Works and What Doesn't
 
-| ✅ Works (via reference) | ❌ Doesn't Work (direct call) |
+The key is **how you call** the function after overriding, not what you pass to Override:
+
+| ✅ Works (call via reference) | ❌ Doesn't Work (call via expression) |
 |--------------------------|-------------------------------|
-| `fn := genericFunc[int]`<br>`Override(ctx, fn, ...)`<br>`result := fn(42)` | `Override(ctx, genericFunc[int], ...)`<br>`result := genericFunc(42)` |
+| `fn := genericFunc[int]`<br>`Override(ctx, fn, ...)`<br>`result := fn(42)` | `fn := genericFunc[int]`<br>`Override(ctx, fn, ...)`<br>`result := genericFunc[int](42)` |
+
+**Note:** Both `fn` and `genericFunc[int]` refer to the same trampoline. The Override itself always works. The difference is in the call - `fn(42)` uses the patched trampoline, while `genericFunc[int](42)` or `genericFunc(42)` bypass it.
 
 ### Example: Working Pattern
 
@@ -50,25 +54,31 @@ func TestWithReference(t *testing.T) {
 ```go
 // ❌ This doesn't work
 func TestDirectCall(t *testing.T) {
+	fn := pointer[int]
+	Override(TestingContext(t), fn, Once, mockFunc)
+	result := pointer[int](42)  // Direct call expression bypasses override!
+}
+```
+
+```go
+// ❌ This also doesn't work
+func TestNoReference(t *testing.T) {
 	Override(TestingContext(t), pointer[int], Once, mockFunc)
+	// Now you have no reference variable to call through!
+	// You can only call pointer[int](42) or pointer(42)
+	// Both bypass the override
 	result := pointer(42)  // Direct call bypasses override!
 }
 ```
 
-## Common Error
+## Key Insight
 
-If you try to override a generic function incorrectly, you'll see:
+The limitation is in **how the compiler generates code** for different call patterns:
 
-```
-panic: Overriding generic functions has limited support.
-Direct calls like `genericFunc(x)` cannot be mocked because
-they bypass the trampoline. To test generic functions,
-always use them via a reference:
-  fn := genericFunc[T]
-  result := fn(x)
-```
+- **Call via stored reference** (`fn(42)`): Compiler generates an indirect call through the function pointer, which uses your patched trampoline ✅
+- **Call via expression** (`genericFunc[int](42)`): Compiler generates a direct call to the shaped implementation, bypassing the trampoline ❌
 
-**Solution:** Always create a reference to the generic function before overriding it.
+This cannot be detected at runtime because both patterns pass the same trampoline to Override. The difference only appears in the calling code's assembly.
 
 ## Why This Limitation Exists
 

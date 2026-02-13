@@ -208,6 +208,25 @@ go test -gcflags="all=-N -l" ./...  # Run tests with optimizations disabled
 - On unsupported platforms
 - When proper dependency injection is possible
 
+
+### Mock Implementation Scope: Passing Data
+
+**Important:** Mock functions are executed in the scope of the replaced function, not the test's lexical scope. This means you cannot access variables from the outer (test) function directly inside the mock.
+
+**Best Practice:** To pass data from your test to the mock, use the context argument. Store values in the context and retrieve them inside the mock using `Expectation().Context()`.
+
+**Example:**
+```go
+ctx := context.WithValue(TestingContext(t), "expected", 42)
+Override(ctx, fn, Once, func(a int) int {
+    expected := Expectation().Context().Value("expected").(int)
+    Expectation().CheckArgs(a)
+    return expected
+})
+```
+
+This ensures your mock has access to any required data, even though it cannot see outer variables.
+
 ### AI Agent Considerations
 1. **Memory Safety:** This code manipulates raw memory - suggest careful review
 2. **Platform Awareness:** Recommend checking platform before suggesting usage

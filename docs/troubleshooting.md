@@ -138,6 +138,27 @@ Override(ctx, fn, Always, mock)     // Always effective
 - Check if function has `//go:noinline` directive (might prevent override)
 - For standard library functions, ensure you're not overriding compiler intrinsics
 
+## Cannot Use Outer Variables in Mock Functions
+
+**Symptom:** Mock function cannot access variables from the outer test scope; panics or unexpected values occur.
+
+**Cause:** The mock implementation is executed in the context of the replaced function, not the test's lexical scope. As a result, it cannot access variables from the outer (test) function.
+
+**Solution:** Pass any required data via the context argument. Store values in the context and retrieve them inside the mock. This ensures the mock has access to needed data.
+
+**Example:**
+```go
+// In your test:
+ctx := context.WithValue(TestingContext(t), "expected", 42)
+Override(ctx, fn, Once, func(a int) int {
+  expected := Expectation().Context().Value("expected").(int)
+  Expectation().CheckArgs(a)
+  return expected
+})
+```
+
+This pattern allows you to pass any value from the test to the mock safely.
+
 ## Memory Leak / Unexpected Memory Usage
 
 **Symptom:** Tests consume excessive memory or leak memory.
