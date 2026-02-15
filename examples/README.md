@@ -103,24 +103,6 @@ Demonstrates testing code that uses panic/recover patterns and preventing panics
 - Testing critical failure scenarios safely
 - Making panic-prone code testable without modifying it
 
-### 6. [advanced/](advanced/) - Advanced Patterns
-
-Demonstrates advanced Testaroli patterns including multi-count overrides and context-based data passing.
-
-**Key Concepts:**
-- **Multi-Count Overrides**: Use `RunNumber()` to return different values on sequential calls
-- **Context Data Passing**: Pass test data to mocks via `context.WithValue` and access in mocks via `Expectation().Context().Value(...)`
-- **State Machines**: Test multiple state transitions with multi-count overrides
-- **Dynamic Expectations**: Use context to configure expected values dynamically
-- **Combining Patterns**: Use both multi-count and context passing together
-
-**Use Cases:**
-- Testing retry logic with different outcomes per attempt
-- State machine testing with multiple transitions
-- Passing configuration or expected values to mocks without closure variables
-- Testing sequences of function calls with varying behavior
-- Complex data pipelines with multiple stages
-
 ## Testing Best Practices
 
 1. **Always check expectations**: Call `ExpectationsWereMet()` at the end of tests
