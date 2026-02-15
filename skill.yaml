@@ -79,17 +79,51 @@ skill:
       file: "SKILLS.md"
       section: "Pattern 9"
       use_case: "Global mock not participating in chain"
+    
+    - name: "Variadic Function Override"
+      description: "Override functions with variadic parameters"
+      file: "SKILLS.md"
+      section: "Pattern 10"
+      use_case: "Mock functions like fmt.Sprintf, logging, or custom variadic functions"
+    
+    - name: "Variadic Method Override"
+      description: "Override methods with variadic parameters"
+      file: "SKILLS.md"
+      section: "Pattern 11"
+      use_case: "Mock logging methods or other variadic methods"
+    
+    - name: "Passing Data via Context"
+      description: "Use context.WithValue to pass test data to mocks"
+      file: "SKILLS.md"
+      section: "Pattern 12"
+      use_case: "When mock needs access to outer variables or test configuration"
+    
+    - name: "Generic Function Override"
+      description: "Override instantiated generic functions via reference"
+      file: "SKILLS.md"
+      section: "Pattern 13"
+      use_case: "Mock generic utility functions with type parameters"
+    
+    - name: "Interface Implementation Override"
+      description: "Override concrete type methods that implement interfaces"
+      file: "SKILLS.md"
+      section: "Pattern 14"
+      use_case: "Mock interface implementations without interface-level override"
   
   capabilities:
     - "Override package functions"
     - "Override methods (instance and pointer receivers)"
     - "Override standard library functions"
+    - "Override variadic functions and methods"
+    - "Override generic functions (via reference)"
+    - "Override concrete implementations of interfaces"
     - "Chain multiple overrides in sequence"
     - "Validate function call arguments"
     - "Track expectation fulfillment"
     - "Simulate error conditions"
     - "Control number of override applications"
     - "Capture and verify call patterns"
+    - "Pass data to mocks via context"
     - "Cross-package mocking"
   
   requirements:
@@ -124,7 +158,20 @@ skill:
     quick_start: "Override(TestingContext(t), targetFunc, Once, mockFunc)()"
     key_functions:
       - "Override() - Create function/method override"
-      - "Expectation() - Track mock call"
+      - "Expectation() - REQUIRED call inside every mock to track execution and manage chain"
       - "CheckArgs() - Validate arguments"
       - "ExpectationsWereMet() - Verify all mocks called"
       - "Reset()/ResetAll() - Manual override cleanup"
+    
+    critical_requirements:
+      - "ALWAYS call Expectation() inside every mock function (even if not checking args)"
+      - "Use TestingContext(t) not context.Background()"
+      - "Call ExpectationsWereMet() at end of test"
+      - "Use -gcflags='all=-N -l' compiler flags"
+      - "Method receiver becomes first argument in mock"
+    
+    common_mistakes:
+      - "Forgetting to call Expectation() - causes chain to break and ExpectationsWereMet() to fail"
+      - "Using wrong variadic syntax - pass as slice in CheckArgs, individual args in trailing call"
+      - "Trying to override interface methods - must override concrete type method"
+      - "Accessing outer variables from mock - use context.WithValue instead"

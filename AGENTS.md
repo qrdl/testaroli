@@ -190,31 +190,16 @@ ResetAll(bar)  // Removes both overrides, restores original
 ## Limitations
 
 ### Generics
-- **Limited support** for generic functions
-- **Works:** When generic function is called via reference variable
-- **Doesn't work:** Direct generic function calls
-- **Pattern:**
-  ```go
-  fn := genericFunc[int]  // Create reference
-  Override(ctx, fn, Once, mock)
-  result := fn(42)  // Call via reference ✅
-  // result := genericFunc[int](42)  // Direct call ❌
-  ```
-- See [docs/generics.md](docs/generics.md) for details
+- **Limited support** - Generic functions work only when called via reference variable
+- **Must create reference** to type-instantiated function: `fnRef := GenericFunc[int]`
+- **Must call through reference** - Direct calls bypass override
+- See [docs/generics.md](docs/generics.md) and "Generic Function Override" in Usage Patterns for examples
 
 ### Interface Methods
-- **Cannot override interface methods directly**
-- **Must override concrete type's method** that implements the interface
-- **Pattern:**
-  ```go
-  // ❌ Wrong:
-  Override(ctx, Shape.Area, ...)  // Interface method
-  
-  // ✅ Correct:
-  Override(ctx, square.Area, ...)  // Concrete type method
-  Override(ctx, (*square).Area, ...)  // Pointer receiver variant
-  ```
-- See [docs/interfaces.md](docs/interfaces.md) for details
+- **Cannot override interfaces directly** - Must override concrete type's method that implements the interface
+- **Pattern:** Override `ConcreteType.Method`, not `Interface.Method`
+- **Works with both receivers:** Value (`square.Area`) and pointer (`(*square).Area`)
+- See [docs/interfaces.md](docs/interfaces.md) and "Interface Implementation Override" in Usage Patterns for examples
 
 ### Other Constraints
 - **Testing Only:** Never use in production code
@@ -396,6 +381,65 @@ Override(TestingContext(t), riskyOperation, Once,
 result, err := ProcessWithRecovery(data, 5)  // Should recover from panic
 ```
 
+### Generic Function Override
+Override generic functions by creating a reference to the type-instantiated function:
+
+```go
+// Generic function: func Max[T constraints.Ordered](a, b T) T
+func TestGenericOverride(t *testing.T) {
+    // CRITICAL: Create reference to instantiated generic function
+    maxInt := Max[int]  // Reference variable
+    
+    Override(TestingContext(t), maxInt, Once,
+        func(a, b int) int {
+            Expectation().CheckArgs(10, 20)
+            return 999  // Mocked result
+        })(10, 20)
+
+    // MUST call via reference (not directly)
+    result := maxInt(10, 20)  // ✅ Works - calls override
+    // result := Max[int](10, 20)  // ❌ Bypasses override
+}
+```
+
+**Key Points:**
+- Cannot override generic functions directly due to Go's compile-time instantiation
+- Must create a reference variable to the type-instantiated function
+- Always call through the reference variable, never directly
+- See [docs/generics.md](docs/generics.md) for detailed explanation
+
+### Interface Implementation Override
+Override concrete type methods that implement interfaces:
+
+```go
+// Interface: type Shape interface { Area() float64 }
+// Concrete: type square struct { side float64 }
+//           func (s square) Area() float64 { return s.side * s.side }
+
+func TestInterfaceOverride(t *testing.T) {
+    // CRITICAL: Override concrete type's method, not interface method
+    Override(TestingContext(t), square.Area, Once,
+        func(s square) float64 {
+            Expectation()
+            return 100.0  // Mocked area
+        })
+
+    // Use via interface
+    s := square{side: 5}
+    var shape Shape = s
+    
+    result := shape.Area()  // Calls mocked implementation
+    // result == 100.0
+}
+```
+
+**Key Points:**
+- Cannot override interface methods directly (interface has no implementation)
+- Must override the concrete type's method that implements the interface
+- Works with both value receivers (`square.Area`) and pointer receivers (`(*square).Area`)
+- Override applies when calling through interface or concrete type
+- See [docs/interfaces.md](docs/interfaces.md) for detailed explanation
+
 ## Dependencies
 
 - **golang.org/x/sys v0.40.0** - System-level operations (memory protection, syscalls)
@@ -567,25 +611,6 @@ Override(ctx, validate, Once, func(input string) error {
 result := process("invalid-input")  // Takes error path
 ```
 
-## Development Workflow
-
-### Testing
-```bash
-go test -gcflags="all=-N -l" ./...  # Run tests with optimizations disabled
-```
-
-### Testing Strategy
-1. Unit tests for each component
-2. Platform-specific test files
-3. Integration tests in examples directory
-4. Extensive test coverage (badge in README)
-
-### Quality Assurance
-- Go Report Card integration
-- CodeQL security scanning
-- Automated testing workflow (GitHub Actions)
-- FOSSA license compliance
-
 ## Key Insights for AI Agents
 
 ### When to Use This Project
@@ -671,6 +696,37 @@ Override(ctx, fn, Once, func(arg int) int {
 })
 ```
 
+#### 6. Generic Functions
+Cannot override generic functions directly - use reference pattern:
+```go
+// Generic: func Max[T constraints.Ordered](a, b T) T
+maxInt := Max[int]  // Create reference to instantiated generic
+
+Override(ctx, maxInt, Once, func(a, b int) int {
+    Expectation().CheckArgs(a, b)
+    return 999
+})(10, 20)
+
+result := maxInt(10, 20)  // ✅ Call via reference
+// Max[int](10, 20)        // ❌ Direct call bypasses override
+```
+
+#### 7. Interface Implementations
+Cannot override interface methods - override concrete type instead:
+```go
+// Interface: type Shape interface { Area() float64 }
+// Concrete: type square struct { side float64 }
+//           func (s square) Area() float64 { ... }
+
+// ❌ Wrong:
+// Override(ctx, Shape.Area, ...)
+
+// ✅ Correct:
+Override(ctx, square.Area, Once, mock)        // Value receiver
+// Or:
+Override(ctx, (*square).Area, Once, mock)     // Pointer receiver
+```
+
 ### Mock Implementation Scope: Passing Data
 
 **Important:** Mock functions are executed in the scope of the replaced function, not the test's lexical scope. This means you cannot access variables from the outer (test) function directly inside the mock.
@@ -744,6 +800,23 @@ This ensures your mock has access to any required data, even though it cannot se
    - **Unlimited:** In chain, blocks others until reset
    - **Always:** Outside chain, active alongside others
 
+8. **Not calling Expectation() inside the mock:**
+   ```go
+   // ❌ Wrong:
+   Override(ctx, fn, Once, func(a int) int {
+       return 42  // No Expectation() call - will break chain!
+   })
+   
+   // ✅ Correct:
+   Override(ctx, fn, Once, func(a int) int {
+       Expectation()  // REQUIRED - even if not checking args
+       return 42
+   })
+   ```
+   - **Critical:** Expectation() must be called in ALL mocks (including Always)
+   - Without it: call counters don't increment, chain never advances, ExpectationsWereMet() fails
+   - Even if you don't call CheckArgs(), you must call Expectation()
+
 ### Best Practices for AI Agents
 
 1. **Always generate complete test structure:**
@@ -792,133 +865,16 @@ This ensures your mock has access to any required data, even though it cannot se
 6. **Method Receivers:** Always remind about receiver as first argument
 7. **Variadic Functions:** Explain the three-part rule (mock as slice, CheckArgs as slice, call as individual)
 8. **Panic Patterns:** Useful for testing recovery logic or preventing test failures
+9. **Generics:** Always use reference pattern - see "Generic Function Override" in Usage Patterns
+10. **Interfaces:** Always override concrete type - see "Interface Implementation Override" in Usage Patterns
 
 ## Code Generation Guidelines for AI Agents
 
-### Template for Basic Test
-```go
-func Test<Name>(t *testing.T) {
-    // Setup: Create context
-    ctx := TestingContext(t)
-    
-    // Override: Set up mock function(s)
-    Override(ctx, targetFunc, Once, func(args...) returnType {
-        Expectation().CheckArgs(expectedArgs...)
-        return mockResult
-    })(expectedArgs...)
-    
-    // Execute: Call function under test
-    result := functionUnderTest(...)
-    
-    // Assert: Verify result
-    if result != expected {
-        t.Errorf("got %v, expected %v", result, expected)
-    }
-    
-    // Verify: Check all mocks were called
-    if err := ExpectationsWereMet(); err != nil {
-        t.Error(err)
-    }
-}
-```
-
-### Template for Method Override
-```go
-func Test<Name>(t *testing.T) {
-    instance := &Type{...}
-    
-    // NOTE: Receiver becomes first argument
-    Override(TestingContext(t), (*Type).Method, Once,
-        func(receiver *Type, args...) returnType {
-            // Validate receiver if needed
-            Expectation().CheckArgs(receiver, expectedArgs...)
-            return mockResult
-        })(instance, expectedArgs...)
-    
-    result := instance.Method(...)
-    
-    if err := ExpectationsWereMet(); err != nil {
-        t.Error(err)
-    }
-}
-```
-
-### Template for Variadic Function
-```go
-func Test<Name>(t *testing.T) {
-    Override(TestingContext(t), variadicFunc, Once,
-        func(arg1 Type1, varArgs ...Type2) ReturnType {
-            // NOTE: Pass variadic as slice in CheckArgs
-            Expectation().CheckArgs(arg1, []Type2{...})
-            return mockResult
-        })(arg1Value, varArg1, varArg2, varArg3)  // Individual args
-    
-    result := variadicFunc(arg1Value, varArg1, varArg2, varArg3)
-    
-    if err := ExpectationsWereMet(); err != nil {
-        t.Error(err)
-    }
-}
-```
-
-### Template for Multi-Count with RunNumber
-```go
-func Test<Name>(t *testing.T) {
-    Override(TestingContext(t), targetFunc, 3, func(arg Type) ReturnType {
-        e := Expectation()
-        e.CheckArgs(arg)
-        
-        switch e.RunNumber() {
-        case 0:
-            return firstResult
-        case 1:
-            return secondResult
-        case 2:
-            return thirdResult
-        default:
-            panic("unexpected call")
-        }
-    })(expectedArg)
-    
-    // Call function 3 times
-    result1 := targetFunc(expectedArg)
-    result2 := targetFunc(expectedArg)
-    result3 := targetFunc(expectedArg)
-    
-    // Verify results
-    // ... assertions ...
-    
-    if err := ExpectationsWereMet(); err != nil {
-        t.Error(err)
-    }
-}
-```
-
-### Template for Context Values
-```go
-func Test<Name>(t *testing.T) {
-    // Store data in context
-    expectedData := map[string]interface{}{
-        "key1": value1,
-        "key2": value2,
-    }
-    ctx := context.WithValue(TestingContext(t), "testData", expectedData)
-    
-    Override(ctx, targetFunc, Once, func(arg Type) ReturnType {
-        // Retrieve data from context
-        data := Expectation().Context().Value("testData").(map[string]interface{})
-        
-        // Use data in mock logic
-        return data["key1"].(ReturnType)
-    })
-    
-    result := targetFunc(arg)
-    
-    if err := ExpectationsWereMet(); err != nil {
-        t.Error(err)
-    }
-}
-```
+**Note:** Use the working examples in "Usage Patterns" section above as templates. They contain real, tested code you can adapt. Key patterns:
+- Basic Override, Method Override, Variadic Function
+- Multi-Count with RunNumber(), Context Values
+- Generic Function (via reference), Interface Implementation (concrete type)
+- Panic Prevention, Panic Simulation
 
 ### Checklist for AI Agents When Generating Override Code
 
@@ -988,6 +944,18 @@ func Test<Name>(t *testing.T) {
 - Multiple related values
 - Combining with RunNumber() for complex scenarios
 
+**Suggest generic function pattern** when:
+- Target function has type parameters
+- Function is generic/templated
+- Need to mock utility functions with constraints
+- Remind to create reference and call through it
+
+**Suggest interface override pattern** when:
+- Target is an interface type
+- Need to mock interface implementations
+- Testing code that uses interfaces
+- Remind to override concrete type, not interface
+
 ## Retracted Versions
 Versions v0.1.0 through v0.3.2 are retracted - avoid using these versions.
 
@@ -999,6 +967,6 @@ Versions v0.1.0 through v0.3.2 are retracted - avoid using these versions.
 
 ---
 
-*Generated: 2026-02-14*
+*Generated: 2026-02-15*
 *Analysis Type: Project Structure, Functionality, and AI Agent Guidance*
 *Comprehensive Instructions: All Testing Scenarios and Patterns*
