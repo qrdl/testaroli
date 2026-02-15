@@ -89,6 +89,40 @@ Override(ctx, fn, Always, mock)     // Always effective
   ```
 - Set up overrides in the order they'll be called (chain executes LIFO)
 
+## Mock Called But Expectations Not Met
+
+**Symptom:** Function is clearly being called (you see mock behavior) but `ExpectationsWereMet()` reports it wasn't called, or subsequent overrides in chain never activate.
+
+**Cause:** You forgot to call `Expectation()` inside the mock function.
+
+**Critical:** `Expectation()` MUST be called inside every mock function, even if you don't check arguments. It:
+- Increments the call counter
+- Enables automatic restoration after specified calls
+- Advances the override chain to next mock
+- Validates call order
+
+**Solution:**
+```go
+// ❌ Wrong - no Expectation() call
+Override(ctx, fn, Once, func(a int) int {
+    return 42  // Missing Expectation()!
+})(42)
+
+// ✅ Correct - always call Expectation()
+Override(ctx, fn, Once, func(a int) int {
+    Expectation()  // Required!
+    return 42
+})(42)
+
+// ✅ Also correct - with argument checking
+Override(ctx, fn, Once, func(a int) int {
+    Expectation().CheckArgs(a)  // Expectation() is called before CheckArgs()
+    return 42
+})(42)
+```
+
+**Note:** This applies to ALL count modes including `Always` and `Unlimited`.
+
 ## Arguments Don't Match Error
 
 **Symptom:** `CheckArgs()` panics with message about argument mismatch.

@@ -211,17 +211,143 @@ func TestAlways(t *testing.T) {
     // This override is always active
     Override(TestingContext(t), mypackage.GetConfig, Always,
         func() *Config {
+            Expectation()  // MUST call even for Always overrides
             return &Config{Debug: true}
         })
 
-    // No need to call Expectation() for Always overrides
-    // They don't participate in the call chain
+    // Always overrides don't participate in the call chain
+    // but Expectation() must still be called to track execution
 }
 ```
 
 ## Advanced Patterns
 
-### Stateful Mock
+### Pattern 10: Variadic Function Override
+```go
+func TestVariadic(t *testing.T) {
+    // Function: func formatList(sep string, items ...string) string
+    
+    Override(TestingContext(t), formatList, Once,
+        func(sep string, items ...string) string {
+            // Inside mock: items is a []string slice
+            // In CheckArgs: pass variadic as slice
+            Expectation().CheckArgs(sep, []string{"a", "b", "c"})
+            return "mocked"
+        })(", ", "a", "b", "c")  // Trailing call: individual args
+
+    result := formatList(", ", "a", "b", "c")
+    // result == "mocked"
+}
+```
+
+**Key Rules for Variadic:**
+- Inside mock: variadic parameter is a slice (`items ...string` → `items` is `[]string`)
+- In `CheckArgs()`: pass variadic as slice (`[]string{"a", "b", "c"}`)
+- In trailing call: pass as individual arguments (`"a", "b", "c"`)
+
+### Pattern 11: Variadic Method Override
+```go
+func TestVariadicMethod(t *testing.T) {
+    logger := &Logger{}
+    
+    // Method: func (l *Logger) Log(format string, args ...interface{}) string
+    Override(TestingContext(t), (*Logger).Log, Once,
+        func(l *Logger, format string, args ...interface{}) string {
+            // Receiver first, then regular args, then variadic as slice
+            Expectation().CheckArgs(l, format, []interface{}{"val1", 42})
+            return "logged"
+        })(logger, "Format: %s %d", "val1", 42)
+
+    result := logger.Log("Format: %s %d", "val1", 42)
+}
+```
+
+### Pattern 12: Passing Data to Mock via Context
+```go
+func TestContextData(t *testing.T) {
+    // Problem: Cannot access outer variables from inside mock
+    // Solution: Use context to pass data
+    
+    expectedValue := 100
+    ctx := context.WithValue(TestingContext(t), "expected", expectedValue)
+    
+    Override(ctx, mypackage.Calculate, Once,
+        func(x int) int {
+            // Retrieve value from context
+            expected := Expectation().Context().Value("expected").(int)
+            Expectation().CheckArgs(x)
+            return expected
+        })(50)
+
+    result := mypackage.Calculate(50)
+    // result == 100
+}
+```
+
+**Use context when:**
+- Mock needs access to test data
+- Combining with `RunNumber()` for complex scenarios
+- Passing configuration or state to mock
+
+### Pattern 13: Generic Function Override
+```go
+func TestGeneric(t *testing.T) {
+    // Generic: func Max[T constraints.Ordered](a, b T) T
+    
+    // CRITICAL: Create function reference first
+    maxInt := Max[int]  // Reference to instantiated generic
+    
+    Override(TestingContext(t), maxInt, Once,
+        func(a, b int) int {
+            Expectation().CheckArgs(a, b)
+            return 999  // Mocked result
+        })(10, 20)
+
+    // MUST call via reference (not directly)
+    result := maxInt(10, 20)  // ✅ Works
+    // Max[int](10, 20)        // ❌ Would bypass override
+}
+```
+
+**Generic limitations:**
+- Cannot override generic functions directly
+- Must create reference to type-instantiated function
+- Call through reference, not direct generic call
+- See [docs/generics.md](docs/generics.md) for details
+
+### Pattern 14: Interface Implementation Override
+```go
+func TestInterface(t *testing.T) {
+    // Interface: type Shape interface { Area() float64 }
+    // Concrete: type square struct { side float64 }
+    //           func (s square) Area() float64 { return s.side * s.side }
+    
+    // CRITICAL: Override concrete type's method, not interface
+    Override(TestingContext(t), square.Area, Once,
+        func(s square) float64 {
+            Expectation()
+            return 100.0  // Mocked area
+        })
+
+    s := square{side: 5}
+    var shape Shape = s
+    
+    result := shape.Area()  // Calls mocked implementation
+    // result == 100.0
+}
+```
+
+**Interface limitations:**
+- Cannot override interface methods directly
+- Must override the concrete type's method that implements the interface
+- Works for both value and pointer receivers: `square.Area` or `(*square).Area`
+- See [docs/interfaces.md](docs/interfaces.md) for details
+
+## Additional Techniques
+
+These examples show techniques that can be combined with any pattern above:
+
+### Stateful Mock (Using Variables)
 ```go
 func TestStateful(t *testing.T) {
     callCount := 0
@@ -237,7 +363,7 @@ func TestStateful(t *testing.T) {
 }
 ```
 
-### Conditional Mock
+### Conditional Logic in Mocks
 ```go
 func TestConditional(t *testing.T) {
     Override(TestingContext(t), mypackage.Process, Unlimited,
@@ -253,7 +379,7 @@ func TestConditional(t *testing.T) {
 }
 ```
 
-### Capturing Arguments
+### Capturing/Collecting Arguments
 ```go
 func TestCapture(t *testing.T) {
     var capturedArgs []string
@@ -266,7 +392,7 @@ func TestCapture(t *testing.T) {
 
     // Test code...
 
-    // Verify captured arguments
+    // Verify captured arguments after
     if len(capturedArgs) != 3 {
         t.Errorf("Expected 3 calls, got %d", len(capturedArgs))
     }
@@ -326,11 +452,14 @@ func TestManual(t *testing.T) {
 **Issue:** "panic: permission denied (memory protection)"
 - **Solution:** Platform-specific issue - check OS/architecture support
 
+**Issue:** "expectations not met" or overrides never restore
+- **Solution:** You forgot to call `Expectation()` inside the mock - it's REQUIRED for all overrides
+
 ## Best Practices
 
 1. **Use Once for single calls** - Clearest intent and automatic restoration
 2. **Chain overrides for sequences** - Create ordered behavior for multiple calls
-3. **Call Expectation() in every mock** - Tracks call and enables validation
+3. **ALWAYS call Expectation() in every mock** - Required to track calls and enable proper chain management
 4. **Use CheckArgs() for critical tests** - Ensures function receives correct data
 5. **Prefer Unlimited over Always** - Always overrides bypass the chain system
 6. **Test one behavior per override** - Keep mocks simple and focused
@@ -339,32 +468,28 @@ func TestManual(t *testing.T) {
 
 ## Quick Reference
 
-### Import and Setup
+**Core patterns:** Pattern Library (1-14) contains full examples  
+**Techniques:** Additional Techniques section shows stateful, conditional, and capturing patterns
+
+**Setup:**
 ```go
 import "github.com/qrdl/testaroli"
-// Test flags: -gcflags="all=-N -l"
+// Required test flags: -gcflags="all=-N -l"
 ```
 
-### Basic Override
-```go
-Override(TestingContext(t), targetFunc, Once, mockFunc)()
-```
-
-### With Arguments
+**Basic syntax:**
 ```go
 Override(TestingContext(t), targetFunc, Once, mockFunc)(expectedArgs...)
 ```
 
-### Expectation Tracking
-```go
-Expectation()              // Track call
-Expectation().CheckArgs()  // Track and validate
-```
-
-### Validation
-```go
-ExpectationsWereMet(t)  // Verify all expectations
-```
+**Key rules:**
+- Always call `Expectation()` inside mock
+- Methods: receiver becomes first argument
+- Variadic: pass as slice in `CheckArgs`, individual args in trailing call
+- Generics: create reference first (`fnRef := GenericFunc[int]`)
+- Interfaces: override concrete type, not interface
+- Context: use `context.WithValue` to pass data to mocks
+- End test with `ExpectationsWereMet(t)`
 
 ## Related Documentation
 
@@ -375,5 +500,5 @@ ExpectationsWereMet(t)  // Verify all expectations
 
 ---
 
-*Generated: 2026-02-07*
+*Generated: 2026-02-15*
 *Purpose: AI Agent and Developer Reference for Function Override Generation*
