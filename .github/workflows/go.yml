@@ -56,6 +56,11 @@ jobs:
           msystem: CLANGARM64
           install: mingw-w64-clang-aarch64-gcc-compat
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: './go.mod'
+
       - name: Test examples
         shell: msys2 {0}
         run: go test -v -gcflags="all=-N -l" ./examples/...
