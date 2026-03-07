@@ -35,13 +35,13 @@ func TestSimulatePanicInDependency(t *testing.T) {
 
 	// Override riskyOperation to panic
 	Override(ctx, riskyOperation, Once, func(data []string, index int) string {
-		Expectation().CheckArgs([]string{"a", "b"}, 5)
+		Expectation().CheckArgs(data, index)
 		panic("index out of bounds")
 	})([]string{"a", "b"}, 5)
 
 	// Override handlePanic to verify it's called with the right panic value
 	Override(ctx, handlePanic, Once, func(r interface{}) error {
-		Expectation().CheckArgs("index out of bounds")
+		Expectation().CheckArgs(r)
 		return ErrCritical
 	})("index out of bounds")
 
@@ -76,7 +76,7 @@ func TestRecoveryLogic(t *testing.T) {
 func TestValidationPanic(t *testing.T) {
 	// Override validateInput to not panic, return error instead
 	Override(TestingContext(t), validateInput, Once, func(value int) error {
-		Expectation().CheckArgs(-5)
+		Expectation().CheckArgs(value)
 		// Instead of panicking, return an error
 		return errors.New("negative values not allowed")
 	})(-5)
@@ -119,7 +119,7 @@ func TestQueryPanicPrevention(t *testing.T) {
 	// Override Query to avoid panic
 	Override(TestingContext(t), (*Database).Query, Once,
 		func(db *Database, sql string) ([]string, error) {
-			Expectation().CheckArgs(db, "")
+			Expectation().CheckArgs(db, sql)
 			// Return error gracefully instead of panicking
 			return nil, fmt.Errorf("empty SQL not allowed")
 		})(db, "")
@@ -162,7 +162,7 @@ func TestSafeQueryWithPanicRecovery(t *testing.T) {
 func TestDivisionByZero(t *testing.T) {
 	// Override DivideNumbers to not panic
 	Override(TestingContext(t), DivideNumbers, Once, func(a, b float64) float64 {
-		Expectation().CheckArgs(10.0, 0.0)
+		Expectation().CheckArgs(a, b)
 		// Handle gracefully - return zero or infinity
 		return 0.0
 	})(10.0, 0.0)

@@ -12,7 +12,7 @@ import (
 func TestVariadicNoArgs(t *testing.T) {
 	Override(TestingContext(t), formatList, Once, func(sep string, items ...string) string {
 		// When checking args with variadic parameters, pass the variadic part as a slice
-		Expectation().CheckArgs(sep, []string{})
+		Expectation().CheckArgs(sep, items)
 		return "mocked-empty"
 	})(", ") // Call with just the separator, no variadic args
 
@@ -27,7 +27,7 @@ func TestVariadicNoArgs(t *testing.T) {
 // TestVariadicSingleArg tests overriding with a single variadic argument
 func TestVariadicSingleArg(t *testing.T) {
 	Override(TestingContext(t), formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{"one"})
+		Expectation().CheckArgs(sep, items)
 		return "mocked-single"
 	})(", ", "one") // Call with separator and one item
 
@@ -42,7 +42,7 @@ func TestVariadicSingleArg(t *testing.T) {
 // TestVariadicMultipleArgs tests overriding with multiple variadic arguments
 func TestVariadicMultipleArgs(t *testing.T) {
 	Override(TestingContext(t), formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{"alpha", "beta", "gamma"})
+		Expectation().CheckArgs(sep, items)
 		return "mocked-multiple"
 	})(" | ", "alpha", "beta", "gamma") // Call with separator and multiple items
 
@@ -61,7 +61,7 @@ func TestVariadicMethod(t *testing.T) {
 	// For methods, receiver is first arg, then regular args, then variadic args individually
 	Override(TestingContext(t), (*Logger).Log, Once,
 		func(l *Logger, format string, args ...interface{}) string {
-			Expectation().CheckArgs(l, format, []interface{}{"REQ-123", 3})
+			Expectation().CheckArgs(l, format, args)
 			return "[TEST] mocked log"
 		})(logger, "Processing request %s with %d parameters", "REQ-123", 3)
 
@@ -76,7 +76,7 @@ func TestVariadicMethod(t *testing.T) {
 // TestStdlibVariadic tests overriding standard library variadic function
 func TestStdlibVariadic(t *testing.T) {
 	Override(TestingContext(t), fmt.Sprintf, Once, func(format string, args ...interface{}) string {
-		Expectation().CheckArgs(format, []interface{}{"test", 42})
+		Expectation().CheckArgs(format, args)
 		return "mocked sprintf"
 	})("Format: %s = %d", "test", 42)
 
@@ -101,7 +101,7 @@ func TestProcessRequestSuccess(t *testing.T) {
 
 	// Mock formatList to verify it's called correctly
 	Override(ctx, formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{"param1", "param2", "param3"})
+		Expectation().CheckArgs(sep, items)
 		return "param1, param2, param3"
 	})(", ", "param1", "param2", "param3")
 
@@ -122,7 +122,7 @@ func TestVariadicErrorContext(t *testing.T) {
 
 	// Test with no context
 	Override(TestingContext(t), logError, Once, func(err error, context ...string) string {
-		Expectation().CheckArgs(err, []string{})
+		Expectation().CheckArgs(err, context)
 		return "mocked: no context"
 	})(err) // No context args
 
@@ -133,7 +133,7 @@ func TestVariadicErrorContext(t *testing.T) {
 
 	// Test with single context item
 	Override(TestingContext(t), logError, Once, func(err error, context ...string) string {
-		Expectation().CheckArgs(err, []string{"database"})
+		Expectation().CheckArgs(err, context)
 		return "mocked: single context"
 	})(err, "database") // One context arg
 
@@ -144,7 +144,7 @@ func TestVariadicErrorContext(t *testing.T) {
 
 	// Test with multiple context items
 	Override(TestingContext(t), logError, Once, func(err error, context ...string) string {
-		Expectation().CheckArgs(err, []string{"database", "user-service", "retry-3"})
+		Expectation().CheckArgs(err, context)
 		return "mocked: multiple context"
 	})(err, "database", "user-service", "retry-3") // Multiple context args
 
@@ -162,19 +162,19 @@ func TestVariadicChain(t *testing.T) {
 
 	// First call - no items
 	Override(ctx, formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{})
+		Expectation().CheckArgs(sep, items)
 		return "first"
 	})(", ")
 
 	// Second call - one item
 	Override(ctx, formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{"item1"})
+		Expectation().CheckArgs(sep, items)
 		return "second"
 	})(", ", "item1")
 
 	// Third call - multiple items
 	Override(ctx, formatList, Once, func(sep string, items ...string) string {
-		Expectation().CheckArgs(sep, []string{"a", "b", "c"})
+		Expectation().CheckArgs(sep, items)
 		return "third"
 	})(", ", "a", "b", "c")
 
