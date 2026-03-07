@@ -18,9 +18,9 @@ jobs:
             arch: arm64
           - os: windows-latest
             arch: amd64
-          - os: macos-15-intel
+          - os: macos-26-intel
             arch: amd64
-          - os: macos-15
+          - os: macos-26
             arch: arm64
     steps:
     - uses: actions/checkout@v6
