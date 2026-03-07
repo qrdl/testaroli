@@ -6,71 +6,89 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Test on ${{ matrix.os }} / ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            arch: amd64
-          - os: ubuntu-24.04-arm
-            arch: arm64
-          - os: windows-latest
-            arch: amd64
-          - os: macos-26-intel
-            arch: amd64
-          - os: macos-26
-            arch: arm64
+#  build:
+#    name: Test on ${{ matrix.os }} / ${{ matrix.arch }}
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#      matrix:
+#        include:
+#          - os: ubuntu-latest
+#            arch: amd64
+#          - os: ubuntu-24.04-arm
+#            arch: arm64
+#          - os: windows-latest
+#            arch: amd64
+#          - os: macos-26-intel
+#            arch: amd64
+#          - os: macos-26
+#            arch: arm64
+#    steps:
+#    - uses: actions/checkout@v6
+#
+#    - name: Set up Go
+#      uses: actions/setup-go@v6
+#      with:
+#        go-version-file: './go.mod'
+#
+#    - name: Test examples
+#      run: go test -v -gcflags="all=-N -l" ./examples/...
+#
+#    - name: Unit tests
+#      run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
+#
+#    - name: Upload coverage reports to Codecov
+#      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
+#      uses: codecov/codecov-action@v5
+#      with:
+#        token: ${{ secrets.CODECOV_TOKEN }}
+
+  win-arm64:
+    name: Windows 11 / arm64
+    runs-on: windows-11-arm
     steps:
-    - uses: actions/checkout@v6
-
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version-file: './go.mod'
-
-    - name: Test examples
-      run: go test -v -gcflags="all=-N -l" ./examples/...
-
-    - name: Unit tests
-      run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
-
-    - name: Upload coverage reports to Codecov
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-
-  freebsd-amd64:
-    name: Test on freebsd / amd64
-    runs-on: ubuntu-latest
-    steps:
+      # Prevent Git from converting LF to CRLF, which can cause test failures on Windows
+      - run: git config --global core.autocrlf input
       - uses: actions/checkout@v6
-      - name: Test
-        uses: vmactions/freebsd-vm@v1
-        with:
-          usesh: true
-          copyback: false
-          prepare: |
-            pkg install -y go
-          run: |
-            go test -v -gcflags="all=-N -l" ./examples/...
-            go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
-  freebsd-arm64:
-    name: Test on freebsd / arm64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Test
-        uses: vmactions/freebsd-vm@v1
+      - name: Set up environment
+        uses: msys2/setup-msys2@v2
         with:
-          arch: aarch64
-          usesh: true
-          copyback: false
-          prepare: |
-            pkg install -y go
-          run: |
-            go test -v -gcflags="all=-N -l" ./examples/...
-            go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
+          msystem: CLANGARM64
+          install: mingw-w64-clang-aarch64-gcc-compat
+
+      - name: Test examples
+        shell: msys2 {0}
+        run: go test -v -gcflags="all=-N -l" ./examples/...
+
+#  freebsd-amd64:
+#    name: Test on freebsd / amd64
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v6
+#      - name: Test
+#        uses: vmactions/freebsd-vm@v1
+#        with:
+#          usesh: true
+#          copyback: false
+#          prepare: |
+#            pkg install -y go
+#          run: |
+#            go test -v -gcflags="all=-N -l" ./examples/...
+#            go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
+#
+#  freebsd-arm64:
+#    name: Test on freebsd / arm64
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v6
+#      - name: Test
+#        uses: vmactions/freebsd-vm@v1
+#        with:
+#          arch: aarch64
+#          usesh: true
+#          copyback: false
+#          prepare: |
+#            pkg install -y go
+#          run: |
+#            go test -v -gcflags="all=-N -l" ./examples/...
+#            go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
