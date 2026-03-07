@@ -50,16 +50,11 @@ jobs:
       - run: git config --global core.autocrlf input
       - uses: actions/checkout@v6
 
-      - name: Set up environment
+      - name: Set up Go
         uses: msys2/setup-msys2@v2
         with:
           msystem: CLANGARM64
-          install: mingw-w64-clang-aarch64-gcc-compat
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: './go.mod'
+          install: mingw-w64-clang-aarch64-gcc-compat mingw-w64-clang-aarch64-go
 
       - name: Test examples
         shell: msys2 {0}
