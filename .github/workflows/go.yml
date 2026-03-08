@@ -13,20 +13,15 @@ jobs:
       matrix:
         include:
           - image: ubuntu-latest
-            arch: amd64
-            label: Ubuntu 24 / amd64
+            label: Linux / x86-64
           - image: ubuntu-24.04-arm
-            arch: arm64
-            label: Ubuntu 24 / arm64
-          - image: macos-26-intel
-            arch: amd64
-            label: macOS 26 / amd64
-          - image: macos-26-arm
-            arch: arm64
-            label: macOS 26 / arm64
+            label: Linux / arm64
+          - image: macos-15-intel
+            label: macOS / x86-64
+          - image: macos-latest
+            label: macOS / arm64
           - image: windows-latest
-            arch: amd64
-            label: Windows 11 / amd64
+            label: Windows / x86-64
 
     steps:
     - uses: actions/checkout@v6
@@ -43,13 +38,13 @@ jobs:
       run: go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
     - name: Upload coverage reports to Codecov
-      if: ${{ matrix.image == 'ubuntu-latest' && matrix.arch == 'amd64' && github.ref == 'refs/heads/main' }}
+      if: ${{ matrix.image == 'ubuntu-latest' && github.ref == 'refs/heads/main' }}
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
   win-arm64:
-    name: Windows 11 / arm64
+    name: Windows / arm64
     runs-on: windows-11-arm
     steps:
       # Prevent Git from converting LF to CRLF, which can cause test failures on Windows
@@ -69,7 +64,7 @@ jobs:
           go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
   freebsd-amd64:
-    name: FreeBSD 15 / amd64
+    name: FreeBSD / x86-64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -85,7 +80,7 @@ jobs:
             go test -v -gcflags="all=-N -l" -coverprofile coverage.out .
 
   freebsd-arm64:
-    name: FreeBSD 15 / arm64
+    name: FreeBSD / arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
