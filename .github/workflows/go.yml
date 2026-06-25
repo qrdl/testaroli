@@ -23,7 +23,7 @@ jobs:
           - image: windows-latest
             label: Windows / x86-64
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
@@ -45,7 +45,7 @@ jobs:
       # Prevent Git from converting LF to CRLF, which can cause test failures on Windows
       - name: Configure Git for Windows
         run: git config --global core.autocrlf input
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Go
         uses: msys2/setup-msys2@v2
         with:
@@ -68,7 +68,7 @@ jobs:
           - arch: aarch64
             label: FreeBSD / arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Test
         uses: vmactions/freebsd-vm@v1
         with:
