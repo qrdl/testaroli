@@ -133,6 +133,6 @@ Demonstrates overriding generic functions, using a small latency-report scenario
 
 1. **Forgetting `-gcflags`**: Tests will fail mysteriously without the flags
 2. **Inline functions**: Cannot override inlined functions
-4. **Generic functions**: Any call form works, but Go shape sharing makes an override affect shape-compatible instantiations - see [generics/](generics/) and [docs/generics.md](../docs/generics.md)
+4. **Generic functions**: Any call form works, provided all arguments fit in argument registers alongside the hidden type dictionary (otherwise use a stored reference), and Go shape sharing makes an override affect shape-compatible instantiations - see [generics/](generics/) and [docs/generics.md](../docs/generics.md)
 5. **Scope limitations**: Mocks execute in replaced function's scope, use context to pass data
 6. **Variadic functions**: Inside mock, variadic params are slices; when checking args, pass as slice; when setting expectations, pass as individual args

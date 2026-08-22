@@ -45,13 +45,43 @@ Common issues when using testaroli and their solutions.
 
 **Symptom:** A generic function you overrode still runs its original code.
 
-**Cause:** Optimizations or inlining are enabled, so a direct call expression
+**Cause 1:** Optimizations or inlining are enabled, so a direct call expression
 (`fn[int](x)` / `fn(x)`) was inlined and there is no call left to patch.
 
 **Solution:** Run tests with `-gcflags="all=-N -l"`. Generic functions can then
 be overridden and called in any form (reference, explicit instantiation, or type
-inference). See the [Generic Functions Guide](generics.md), which also covers the
+inference).
+
+**Cause 2:** The signature is not one the direct-call shim can reshape - an
+argument is passed on the stack (a multi-element array, including such a
+receiver), or the integer arguments plus the hidden type dictionary exceed the
+argument-register budget (9 integer words on amd64, 16 on arm64). Only the
+reference form is intercepted then; a direct call runs the original function with
+correct arguments, so nothing is corrupted, but the expectation goes unmet.
+
+**Solution:** Call the generic through a stored reference:
+
+```go
+fn := Generic[int]
+_ = fn(x)   // intercepted whatever the signature looks like
+```
+
+See the [Generic Functions Guide](generics.md), which also covers the
 shape-sharing caveat.
+
+## Panic: "Cannot override function sharing its generic implementation ..."
+
+**Symptom:** Overriding a generic instantiation panics with a message about a
+shared generic implementation.
+
+**Cause:** Go shares one compiled implementation between shape-compatible
+instantiations (all pointer types; a named type and its underlying type), so two
+overrides that would be effective at the same time - at least one of them
+`Always` - would patch the same code and corrupt each other's saved state.
+
+**Solution:** Reset the first override before setting up the second, or chain
+them with a call count instead of `Always` so only one is effective at a time.
+See the [Generic Functions Guide](generics.md).
 
 ## Panic: "Override() cannot be called for interface method"
 

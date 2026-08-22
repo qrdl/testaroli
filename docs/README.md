@@ -145,11 +145,22 @@ Developers can also use SKILLS.md as a quick reference guide with copy-paste pat
 ### Generic Functions
 
 Generic functions can be overridden and called in any form (reference, explicit
-instantiation, or type inference). The one caveat is Go's shape sharing: an
-override for one instantiation also affects other shape-compatible instantiations
-(e.g. all pointer types, or a named type and its underlying type). The [Generic
-Functions Guide](generics.md) explains how it works and the details of this
-caveat.
+instantiation, or type inference), with two caveats:
+
+- **Register-passed arguments only.** Direct calls (explicit instantiation or
+  type inference) are intercepted only when every argument fits in the calling
+  convention's argument registers alongside the hidden type dictionary. A
+  signature with a stack-passed argument, or with more integer words than the
+  register budget allows, is intercepted through a stored reference only - a
+  direct call then runs the original function.
+- **Shape sharing.** An override for one instantiation also affects other
+  shape-compatible instantiations (e.g. all pointer types, or a named type and
+  its underlying type). For that reason two overrides of shape-compatible
+  instantiations that would be effective at the same time are rejected with a
+  panic.
+
+The [Generic Functions Guide](generics.md) explains how it works and the details
+of both caveats.
 
 ### Interface Methods
 

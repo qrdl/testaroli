@@ -310,7 +310,8 @@ func TestGeneric(t *testing.T) {
 
 **Generic notes:**
 - Pass the instantiated function (`Max[int]`) to `Override`; every call form is intercepted
-- Caveat: Go shape sharing means an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type)
+- Caveat: direct calls (explicit instantiation, type inference) are intercepted only when all arguments plus the hidden type dictionary fit in argument registers - with a stack-passed argument or too many integer words, use a stored reference
+- Caveat: Go shape sharing means an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type); two such overrides effective at the same time panic
 - See [docs/generics.md](docs/generics.md) for details
 
 ### Pattern 14: Interface Implementation Override

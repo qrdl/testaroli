@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 type contextKey int
@@ -155,26 +156,55 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 	// registers cannot be reshaped, so only the trampoline gets patched and direct
 	// calls fall through to the original (reference-form calls still work).
 	isGeneric := isGenericName(orgName)
-	dropSlot := 0
-	canShim := false
+	dropSlot, intWords, canShim := 0, 0, false
+	var shapedAddr unsafe.Pointer
 	if isGeneric {
-		slot, ok := dictDropSlot(orgType, isGenericMethodName(orgName))
-		if ok && shimFitsSignature(orgType) {
-			dropSlot = slot
-			canShim = true
+		slot, slotOK := dictDropSlot(orgType, isGenericMethodName(orgName))
+		words, fits := shimFitsSignature(orgType)
+		if slotOK && fits {
+			dropSlot, intWords, canShim = slot, words, true
+			// Resolve the shaped implementation now, while the trampoline still
+			// holds the original code the lookup scans (it is cached, so setting
+			// up a second override of the same instantiation while the first one
+			// is in effect still gets the right address).
+			shapedAddr = shapedImplOf(orgPointer)
+		}
+	}
+
+	// Shape-compatible instantiations - Max[int] and Max[MyInt], or any two
+	// pointer instantiations - share a single shaped implementation while having
+	// distinct trampolines, so a conflict between them is invisible to the check
+	// above. Two simultaneously effective overrides would each patch that one
+	// shaped entry, and the second would save the first one's jump as the
+	// "original" code, so resetting either would restore the wrong bytes. Only
+	// 'Always' overrides can overlap like this (the chain keeps at most one
+	// non-'Always' override in effect at a time), so apply the same rule as for a
+	// shared trampoline.
+	if shapedAddr != nil {
+		for _, e := range expectations {
+			if e.shapedAddr != shapedAddr || e.orgAddr == orgPointer {
+				continue // a different implementation, or already handled above
+			}
+			if e.expCount == Always {
+				panic("Cannot override function sharing its generic implementation with a function that was previously overridden with 'Always' count")
+			} else if count == Always {
+				panic("Cannot Always override function sharing its generic implementation with a previously overridden function")
+			}
 		}
 	}
 
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
 	expectedCall := Expect{
-		ctx:       ctx,
-		expCount:  count,
-		mockAddr:  mockPointer,
-		orgAddr:   orgPointer,
-		orgName:   orgName,
-		isGeneric: isGeneric,
-		canShim:   canShim,
-		dropSlot:  dropSlot,
+		ctx:        ctx,
+		expCount:   count,
+		mockAddr:   mockPointer,
+		orgAddr:    orgPointer,
+		orgName:    orgName,
+		isGeneric:  isGeneric,
+		canShim:    canShim,
+		dropSlot:   dropSlot,
+		intWords:   intWords,
+		shapedAddr: shapedAddr,
 	}
 
 	v := reflect.MakeFunc(

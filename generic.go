@@ -20,26 +20,86 @@ import (
 	"unsafe"
 )
 
+// shapedScanRange is how many bytes of a generic trampoline's code
+// findShapedImpl scans looking for the call to the shaped implementation. The
+// call sits in the trampoline's short body, well within this range.
+const shapedScanRange = 256
+
 // isGenericName reports whether a runtime function name denotes a generic
-// instantiation. The Go compiler embeds "[...]" in the name of both the per-type
-// instantiation trampoline and the shaped implementation:
+// instantiation whose shaped implementation can be patched. The Go compiler
+// embeds "[...]" in the name of both the per-type instantiation trampoline and
+// the shaped implementation:
 //
 //	generic function: pkg.Func[...]
 //	method on a generic receiver type: pkg.Type[...].Method
 //
-// so the marker is at the end for functions but in the middle for methods.
-// Regular functions, methods and closures never contain "[...]", so matching it
-// anywhere in the name is a reliable, false-positive-free test.
+// so the marker is at the end for functions but in the middle for methods (a
+// pointer receiver adds a closing paren, pkg.(*Type[...]).Method).
+//
+// The marker alone is not a sufficient test, though: compiler-generated helpers
+// defined inside a generic function inherit its name, for example
+// pkg.Func[...].func1 for a closure, pkg.Func[...].deferwrap1 for a deferred
+// call and pkg.Type[...].Method-fm for a method value. Those are ordinary entry
+// points that receive no type dictionary (and whose bodies are far too small to
+// host the shim), so anything other than a plain method selector after the
+// marker is rejected here and handled by the regular strategy.
 func isGenericName(name string) bool {
-	return strings.Contains(name, "[...]")
+	i := strings.LastIndex(name, "[...]")
+	if i < 0 {
+		return false
+	}
+	rest := methodSelectorOf(name[i+len("[...]"):])
+	if rest == "" {
+		return true // plain generic function: pkg.Func[...]
+	}
+	sel, isSelector := strings.CutPrefix(rest, ".")
+	return isSelector && isMethodSelector(sel)
+}
+
+// methodSelectorOf returns what follows the "[...]" marker in a generic
+// instantiation name, without the closing paren that a pointer receiver adds:
+// both pkg.Type[...].Method and pkg.(*Type[...]).Method yield ".Method".
+func methodSelectorOf(afterMarker string) string {
+	return strings.TrimPrefix(afterMarker, ")")
+}
+
+// isMethodSelector reports whether <s> is a plain method name rather than a
+// compiler-generated wrapper. Closures are named funcN (nested ones funcN.M),
+// deferred and go-statement wrappers deferwrapN/gowrapN, and method values carry
+// an "-fm" suffix - none of them take a hidden type dictionary. An unexported
+// method that happens to be named like a wrapper is misclassified as one, which
+// only costs it the shaped patch (direct calls then run the original).
+func isMethodSelector(s string) bool {
+	if s == "" || strings.ContainsAny(s, ".-") {
+		return false
+	}
+	for _, wrapper := range [...]string{"func", "deferwrap", "gowrap"} {
+		if digits, ok := strings.CutPrefix(s, wrapper); ok && isDigits(digits) {
+			return false
+		}
+	}
+	return true
+}
+
+// isDigits reports whether <s> is a non-empty run of decimal digits.
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // isGenericMethodName reports whether a generic instantiation name is a method
 // on a generic receiver type (pkg.Type[...].Method) rather than a plain generic
 // function (pkg.Func[...]) - the marker is followed by a method selector.
 func isGenericMethodName(name string) bool {
-	i := strings.Index(name, "[...]")
-	return i >= 0 && strings.Contains(name[i+len("[...]"):], ".")
+	i := strings.LastIndex(name, "[...]")
+	return i >= 0 && strings.HasPrefix(methodSelectorOf(name[i+len("[...]"):]), ".")
 }
 
 // dictDropSlot returns the integer-register argument slot that holds the hidden
@@ -116,35 +176,62 @@ func regFootprint(t reflect.Type) (ints, floats int, ok bool) {
 }
 
 // shimFitsSignature reports whether the generic shim can faithfully reshape a
-// call to a function/method with signature sig. The shim only shifts integer
-// registers, so it works only when every argument - plus the hidden dictionary,
-// which claims one extra integer register - is passed in registers. If any
-// argument would spill to the stack (because it is a stack-passed type or the
-// register budget is exceeded), the shim cannot reproduce the argument layout
-// the mock expects, and the shaped implementation must be left unpatched.
-func shimFitsSignature(sig reflect.Type) bool {
-	totalInt, totalFloat := 0, 0
+// call to a function/method with signature sig, and how many integer registers
+// that signature occupies. The shim only shifts integer registers, so it works
+// only when every argument - plus the hidden dictionary, which claims one extra
+// integer register - is passed in registers. If any argument would spill to the
+// stack (because it is a stack-passed type or the register budget is exceeded),
+// the shim cannot reproduce the argument layout the mock expects, and the shaped
+// implementation must be left unpatched.
+func shimFitsSignature(sig reflect.Type) (intWords int, ok bool) {
+	totalFloat := 0
 	for i := 0; i < sig.NumIn(); i++ {
 		ints, floats, ok := regFootprint(sig.In(i))
 		if !ok {
-			return false
+			return 0, false
 		}
-		totalInt += ints
+		intWords += ints
 		totalFloat += floats
 	}
-	return totalInt+1 <= intRegBudget && totalFloat <= floatRegBudget
+	if intWords+1 > intRegBudget || totalFloat > floatRegBudget {
+		return 0, false
+	}
+	return intWords, true
+}
+
+// shapedImpls caches the shaped implementation of a generic trampoline (nil when
+// it could not be located). The lookup scans the trampoline's original code, so
+// it must happen before the trampoline is patched; caching lets a second
+// override of the same instantiation be set up while the first one is still in
+// effect. Function addresses never move, so an entry stays valid for the
+// lifetime of the process.
+var shapedImpls = map[unsafe.Pointer]unsafe.Pointer{}
+
+// shapedImplOf returns the shaped implementation of the generic trampoline at
+// <tramp>, or nil if it cannot be located.
+func shapedImplOf(tramp unsafe.Pointer) unsafe.Pointer {
+	if shaped, cached := shapedImpls[tramp]; cached {
+		return shaped
+	}
+	shaped := findShapedImpl(tramp)
+	shapedImpls[tramp] = shaped
+	return shaped
 }
 
 // applyOverride installs the override described by <e>, choosing the generic or
 // the regular strategy depending on the kind of function being overridden.
 func applyOverride(e *Expect) {
 	// A generic instantiation is intercepted at both its trampoline and its
-	// shaped implementation only when the shim can reshape the shaped calling
-	// convention (see shimFitsSignature). Otherwise fall back to a plain
-	// trampoline patch, which still intercepts reference-form calls exactly like
-	// a regular function; direct calls then run the original (never corrupted).
-	if e.isGeneric && e.canShim {
-		e.shapedAddr, e.orgPrologue, e.shapedPrologue = overrideGeneric(e.orgAddr, e.mockAddr, e.dropSlot)
+	// shaped implementation only when that implementation was located and the
+	// shim can reshape the shaped calling convention (see shimFitsSignature).
+	// Otherwise fall back to a plain trampoline patch, which still intercepts
+	// reference-form calls exactly like a regular function; direct calls then run
+	// the original (never corrupted). The fallback also leaves the trampoline
+	// body untouched, which matters when the function is not the generic
+	// trampoline we took it for and may be too short to host the shim.
+	if e.isGeneric && e.canShim && e.shapedAddr != nil {
+		e.orgPrologue, e.shapedPrologue = overrideGeneric(
+			e.orgAddr, e.mockAddr, e.shapedAddr, e.dropSlot, e.intWords)
 		return
 	}
 	e.orgPrologue = override(e.orgAddr, e.mockAddr)
@@ -174,19 +261,17 @@ func resetExpect(e *Expect) {
 //
 // The shim is written into the body of the trampoline itself, right after the
 // jump to the mock. The trampoline body is dead code once its entry jumps away,
-// and it is comfortably larger than the shim, so no separate executable memory
-// has to be allocated - the shim is restored together with the trampoline.
+// and it is larger than the shim - which holds no more than one register move
+// per integer argument - so no separate executable memory has to be allocated;
+// the shim is restored together with the trampoline.
 //
-// It returns the shaped implementation address (nil if it could not be located,
-// in which case only the reference form is intercepted) and the saved original
-// bytes of the trampoline and the shaped implementation, for later reset.
-func overrideGeneric(orgPointer, mockPointer unsafe.Pointer, dropSlot int) (shaped unsafe.Pointer, trampSaved, shapedSaved []byte) {
-	// Locate the shaped implementation before overwriting the trampoline, as
-	// the search scans the trampoline's original code for the call to it.
-	shaped = findShapedImpl(orgPointer)
-
+// <shaped> is the address of the shaped implementation and must not be nil (the
+// caller falls back to a plain trampoline patch when it could not be located).
+// It returns the saved original bytes of the trampoline and of the shaped
+// implementation, for later reset.
+func overrideGeneric(orgPointer, mockPointer, shaped unsafe.Pointer, dropSlot, intWords int) (trampSaved, shapedSaved []byte) {
 	jmpToMock := buildJump(orgPointer, mockPointer)
-	shim := buildShim(uintptr(mockPointer), dropSlot)
+	shim := buildShim(uintptr(mockPointer), dropSlot, intWords)
 	combined := make([]byte, 0, len(jmpToMock)+len(shim))
 	combined = append(combined, jmpToMock...)
 	combined = append(combined, shim...)
@@ -195,17 +280,13 @@ func overrideGeneric(orgPointer, mockPointer unsafe.Pointer, dropSlot int) (shap
 	replacePrologue(orgPointer, combined)
 	flushICache(orgPointer, len(combined))
 
-	if shaped == nil {
-		return shaped, trampSaved, nil
-	}
-
 	shimAddr := unsafe.Pointer(uintptr(orgPointer) + uintptr(len(jmpToMock)))
 	jmpToShim := buildJump(shaped, shimAddr)
 	shapedSaved = saveCode(shaped, len(jmpToShim))
 	replacePrologue(shaped, jmpToShim)
 	flushICache(shaped, len(jmpToShim))
 
-	return shaped, trampSaved, shapedSaved
+	return trampSaved, shapedSaved
 }
 
 // saveCode returns a copy of <n> bytes of machine code starting at <ptr>.

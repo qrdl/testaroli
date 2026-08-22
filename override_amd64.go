@@ -80,9 +80,13 @@ var intArgMoves = [][]byte{
 // (dropSlot) - which pushes every following argument one integer register down.
 // The shim shifts those back up and jumps to the mock. Floating-point argument
 // registers are untouched (the dictionary is never passed in one).
-func buildShim(mockPointer uintptr, dropSlot int) []byte {
+//
+// Only the slots the mock's own signature occupies are shifted - <intWords> of
+// them - so the shim stays as short as the signature allows and overwrites as
+// little of the trampoline body as possible.
+func buildShim(mockPointer uintptr, dropSlot, intWords int) []byte {
 	var shim []byte
-	for i := dropSlot; i < len(intArgMoves); i++ {
+	for i := dropSlot; i < intWords && i < len(intArgMoves); i++ {
 		shim = append(shim, intArgMoves[i]...)
 	}
 	shim = append(shim, 0x49, 0xBC, 0, 0, 0, 0, 0, 0, 0, 0) // MOVABS $mock, R12
@@ -101,9 +105,8 @@ func findShapedImpl(tramp unsafe.Pointer) unsafe.Pointer {
 		return nil
 	}
 	name := f.Name()
-	const scan = 256
-	code := unsafe.Slice((*byte)(tramp), scan)
-	for i := 0; i+jmpInstrLength <= scan; i++ {
+	code := unsafe.Slice((*byte)(tramp), shapedScanRange)
+	for i := 0; i+jmpInstrLength <= shapedScanRange; i++ {
 		if code[i] != 0xE8 { // CALL rel32
 			continue
 		}

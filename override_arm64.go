@@ -88,11 +88,15 @@ func buildJump(from, to unsafe.Pointer) []byte {
 // (dropSlot) - which pushes every following argument one integer register down
 // the sequence R0..R15. The shim shifts those back up and branches to the mock.
 // Floating-point argument registers are untouched.
-func buildShim(mockPointer uintptr, dropSlot int) []byte {
-	buf := make([]byte, 0, 15*instrLength+2*instrLength+8)
+//
+// Only the slots the mock's own signature occupies are shifted - <intWords> of
+// them - so the shim stays as short as the signature allows and overwrites as
+// little of the trampoline body as possible.
+func buildShim(mockPointer uintptr, dropSlot, intWords int) []byte {
+	buf := make([]byte, 0, intRegBudget*instrLength+8)
 	var b [4]byte
-	// MOV X{i}, X{i+1}  (encoded as ORR X{i}, XZR, X{i+1}) for i in dropSlot..14
-	for i := uint32(dropSlot); i < 15; i++ {
+	// MOV X{i}, X{i+1}  (encoded as ORR X{i}, XZR, X{i+1}) for i in dropSlot..intWords-1
+	for i := uint32(dropSlot); i < uint32(intWords) && i < intRegBudget-1; i++ {
 		instr := uint32(0xAA0003E0) | ((i + 1) << 16) | i
 		binary.NativeEndian.PutUint32(b[:], instr)
 		buf = append(buf, b[:]...)
@@ -117,9 +121,8 @@ func findShapedImpl(tramp unsafe.Pointer) unsafe.Pointer {
 		return nil
 	}
 	name := f.Name()
-	const scan = 256
-	code := unsafe.Slice((*byte)(tramp), scan)
-	for i := 0; i+instrLength <= scan; i += instrLength {
+	code := unsafe.Slice((*byte)(tramp), shapedScanRange)
+	for i := 0; i+instrLength <= shapedScanRange; i += instrLength {
 		instr := binary.NativeEndian.Uint32(code[i:])
 		if instr>>26 != 0x25 { // BL: top 6 bits are 0b100101
 			continue

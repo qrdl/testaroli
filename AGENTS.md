@@ -190,9 +190,10 @@ ResetAll(bar)  // Removes both overrides, restores original
 ## Limitations
 
 ### Generics
-- **Fully supported** - Override an instantiated generic function (`GenericFunc[int]`); every call form works (reference, explicit instantiation, type inference)
+- **Supported** - Override an instantiated generic function (`GenericFunc[int]`); every call form works (reference, explicit instantiation, type inference)
 - **Mechanism** - both the instantiation trampoline and the shaped implementation are patched, so direct call expressions are intercepted too
-- **Caveat: shape sharing** - an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type)
+- **Caveat: register-passed arguments only** - the shim that intercepts direct calls can only reshape signatures whose arguments all fit in argument registers alongside the hidden type dictionary. With a stack-passed argument (a multi-element array, including such a receiver) or more integer words than the budget allows (9 on amd64, 16 on arm64), only the reference form is intercepted - a direct call runs the original with correct arguments, so recommend a stored reference for such signatures
+- **Caveat: shape sharing** - an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type); two overrides of shape-compatible instantiations that would be effective at the same time panic
 - See [docs/generics.md](docs/generics.md) and "Generic Function Override" in Usage Patterns for examples
 
 ### Interface Methods
@@ -709,6 +710,8 @@ _ = Max[int](10, 20)    // ✅ explicit instantiation
 maxInt := Max[int]      // ✅ reference
 _ = maxInt(10, 20)
 // Caveat: shape sharing - an override for Max[int] also affects Max[MyInt]
+// Caveat: direct calls need all args in registers alongside the hidden type
+// dictionary - otherwise only the reference form is intercepted
 ```
 
 #### 7. Interface Implementations

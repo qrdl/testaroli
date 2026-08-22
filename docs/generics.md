@@ -68,7 +68,11 @@ When `Override` detects a generic instantiation (its runtime name contains
 
 The shim is written into the body of the trampoline itself — dead code once the
 trampoline entry jumps away — so no extra executable memory is allocated, and
-both patches are restored together when the override is reset.
+both patches are restored together when the override is reset. It is only as long
+as the signature needs (one register move per integer argument at most). If the
+shaped implementation cannot be located, the override quietly degrades to a plain
+trampoline patch and nothing is written into the body at all, so the reference
+form still works and no unrelated code is touched.
 
 ## Methods on Generic Types
 
@@ -131,6 +135,24 @@ argument whose static type differs from what it declared.
 This is rarely an issue in practice — a single test overriding a single
 instantiation — but keep it in mind when a generic function is called with
 several shape-compatible type arguments in the same test.
+
+Because both overrides would patch the same shaped implementation and corrupt
+each other's saved original code, `Override` **panics** when two overrides of
+shape-compatible instantiations would be effective at the same time:
+
+```go
+Override(ctx, pointer[int], Always, mock1)
+Override(ctx, pointer[MyInt], Always, mock2)  // panics: shared implementation
+```
+
+Only `Always` overrides can overlap this way — the override chain keeps at most
+one ordinary override effective at a time — so shape-compatible instantiations
+can still be overridden one after another with a call count:
+
+```go
+Override(ctx, pointer[int], Once, mock1)(1)
+Override(ctx, pointer[MyInt], Once, mock2)(2)  // fine: effective in turn
+```
 
 ## Requirements
 

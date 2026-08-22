@@ -261,3 +261,128 @@ func TestGenericUnshimmableDegrades(t *testing.T) {
 	}
 	ResetAll(arrBox[int].First)
 }
+
+// genericClosure returns a closure defined inside a generic function. The
+// closure inherits the "[...]" marker of the enclosing instantiation in its
+// runtime name (pkg.genericClosure[...].func1), but it is an ordinary entry
+// point that receives no type dictionary.
+func genericClosure[T any](a T) func(T) T {
+	return func(b T) T { return a }
+}
+
+// TestGenericEnclosedClosure checks that a closure defined inside a generic
+// function is overridden with the regular strategy. The marker in its name must
+// not route it through the shaped-implementation strategy, which would mistake
+// its first argument for a receiver and write a shim into its (very short) body.
+func TestGenericEnclosedClosure(t *testing.T) {
+	fn := genericClosure(1)
+
+	Override(TestingContext(t), fn, Once, func(b int) int {
+		Expectation().CheckArgs(b)
+		return 42
+	})(7)
+
+	if got := fn(7); got != 42 {
+		t.Errorf("closure call: got %d, want 42 (mocked)", got)
+	}
+	testError(t, nil, ExpectationsWereMet())
+
+	if got := fn(7); got != 1 {
+		t.Errorf("restored closure call: got %d, want 1 (original)", got)
+	}
+}
+
+// shapeSibling has int as its underlying type, so genericFunc[shapeSibling]
+// shares its shaped implementation with genericFunc[int] while having its own
+// instantiation trampoline.
+type shapeSibling int
+
+func callSiblingDirect(a shapeSibling) *shapeSibling { return genericFunc(a) }
+
+// mustPanic runs <f> and reports a failure unless it panics.
+func mustPanic(t *testing.T, what string, f func()) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic %s", what)
+		}
+	}()
+	f()
+}
+
+// TestGenericShapeSharingConflict verifies that overrides of shape-compatible
+// instantiations that would be effective at the same time are rejected. Both
+// patch the same shaped implementation, so the second one would record the first
+// one's jump as the original code and resetting either would restore the wrong
+// bytes.
+func TestGenericShapeSharingConflict(t *testing.T) {
+	ctx := TestingContext(t)
+
+	Override(ctx, genericFunc[int], Always, func(a int) *int {
+		Expectation()
+		return nil
+	})
+	mustPanic(t, "on an Always override of a shape-compatible instantiation", func() {
+		Override(ctx, genericFunc[shapeSibling], Always, func(a shapeSibling) *shapeSibling {
+			Expectation()
+			return nil
+		})
+	})
+	mustPanic(t, "on any override of an Always-overridden shape-compatible instantiation", func() {
+		Override(ctx, genericFunc[shapeSibling], Once, func(a shapeSibling) *shapeSibling {
+			Expectation()
+			return nil
+		})
+	})
+	ResetAll(genericFunc[int])
+
+	// the reverse order is rejected too
+	Override(ctx, genericFunc[int], Once, func(a int) *int {
+		Expectation()
+		return nil
+	})
+	mustPanic(t, "on an Always override joining an overridden shape-compatible instantiation", func() {
+		Override(ctx, genericFunc[shapeSibling], Always, func(a shapeSibling) *shapeSibling {
+			Expectation()
+			return nil
+		})
+	})
+	ResetAll(genericFunc[int])
+
+	if len(expectations) != 0 {
+		t.Errorf("%d expectation(s) left behind", len(expectations))
+	}
+}
+
+// TestGenericShapeSharingChained checks the conflict rule does not reject the
+// legitimate case: shape-compatible instantiations can still be overridden one
+// after another through the override chain, where only one of them patches the
+// shared shaped implementation at a time.
+func TestGenericShapeSharingChained(t *testing.T) {
+	ctx := TestingContext(t)
+
+	Override(ctx, genericFunc[int], Once, func(a int) *int {
+		Expectation().CheckArgs(a)
+		return nil
+	})(1)
+	Override(ctx, genericFunc[shapeSibling], Once, func(a shapeSibling) *shapeSibling {
+		Expectation().CheckArgs(a)
+		return nil
+	})(2)
+
+	if callDirectInferred(1) != nil {
+		t.Error("first override: expected overridden genericFunc[int] to return nil")
+	}
+	if callSiblingDirect(2) != nil {
+		t.Error("second override: expected overridden genericFunc[shapeSibling] to return nil")
+	}
+	testError(t, nil, ExpectationsWereMet())
+
+	// original behaviour is back for both instantiations
+	if r := callDirectInferred(5); r == nil || *r != 5 {
+		t.Error("genericFunc[int] was not restored")
+	}
+	if r := callSiblingDirect(6); r == nil || *r != 6 {
+		t.Error("genericFunc[shapeSibling] was not restored")
+	}
+}
