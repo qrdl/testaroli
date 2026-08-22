@@ -6,8 +6,8 @@ import (
 	"unsafe"
 )
 
-// covData is a chunk of non-code memory used to drive findShapedImpl and
-// overrideGeneric down their "not a generic function" paths.
+// covData is a chunk of non-code memory used to drive findShapedImpl down its
+// "address is not a function" path (a read-only lookup, no patching).
 var covData [128]byte
 
 //go:noinline
@@ -19,6 +19,50 @@ func covRecur(n int) int {
 		return 0
 	}
 	return covRecur(n-1) + covCallee()
+}
+
+// covLargeNonGeneric is a deliberately large, never-executed function used as a
+// patch target in TestOverrideGenericNoShaped. It is not generic, so
+// findShapedImpl finds no shaped implementation for it, and its compiled body is
+// far larger than the jump+shim that overrideGeneric writes, so patching and
+// restoring its prologue cannot spill into an adjacent function.
+//
+//go:noinline
+func covLargeNonGeneric(a int) int {
+	b := a
+	b += a
+	b -= a
+	b *= a
+	b ^= a
+	b |= a
+	b &= a
+	b <<= 1
+	b >>= 1
+	b += a
+	b -= a
+	b *= a
+	b ^= a
+	b |= a
+	b &= a
+	b <<= 1
+	b >>= 1
+	b += a
+	b -= a
+	b *= a
+	b ^= a
+	b |= a
+	b &= a
+	b <<= 1
+	b >>= 1
+	b += a
+	b -= a
+	b *= a
+	b ^= a
+	b |= a
+	b &= a
+	b <<= 1
+	b >>= 1
+	return b
 }
 
 // TestFindShapedImplNotAFunction covers the guard for an address that does not
@@ -44,14 +88,15 @@ func TestFindShapedImplNonGeneric(t *testing.T) {
 
 // TestOverrideGenericNoShaped covers overrideGeneric's fallback when the shaped
 // implementation cannot be located: it still patches the primary entry and
-// reports a nil shaped address. It runs against a scratch buffer so no real code
-// is executed; the original bytes are restored afterwards.
+// reports a nil shaped address. It patches a real (but never-called) function so
+// that the memory write targets the TEXT segment, as it does in normal use; the
+// original bytes are restored immediately.
 func TestOverrideGenericNoShaped(t *testing.T) {
 	mock := func(int) int { return 0 }
-	ptr := unsafe.Pointer(&covData[0])
+	ptr := reflect.ValueOf(covLargeNonGeneric).UnsafePointer()
 
 	shaped, trampSaved, shapedSaved := overrideGeneric(ptr, reflect.ValueOf(mock).UnsafePointer())
-	defer reset(ptr, trampSaved) // restore scratch bytes
+	reset(ptr, trampSaved) // restore before the function could ever be called
 
 	if shaped != nil {
 		t.Errorf("expected nil shaped address, got %p", shaped)
