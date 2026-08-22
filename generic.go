@@ -167,12 +167,10 @@ func regFootprint(t reflect.Type) (ints, floats int, ok bool) {
 			return 0, 0, true
 		case 1:
 			return regFootprint(t.Elem())
-		default:
-			return 0, 0, false // multi-element arrays are passed on the stack
 		}
-	default:
-		return 0, 0, false
+		// a multi-element array falls through - it is passed on the stack
 	}
+	return 0, 0, false
 }
 
 // shimFitsSignature reports whether the generic shim can faithfully reshape a
@@ -200,11 +198,11 @@ func shimFitsSignature(sig reflect.Type) (intWords int, ok bool) {
 }
 
 // shapedImpls caches the shaped implementation of a generic trampoline (nil when
-// it could not be located). The lookup scans the trampoline's original code, so
-// it must happen before the trampoline is patched; caching lets a second
-// override of the same instantiation be set up while the first one is still in
-// effect. Function addresses never move, so an entry stays valid for the
-// lifetime of the process.
+// it could not be located). The lookup scans the trampoline's code for the call
+// it makes, so the address is resolved once, before the trampoline is ever
+// patched: scanning it later means scanning a prologue overwritten with a jump
+// and a shim, which may hide the call or be mistaken for one. Function addresses
+// never move, so an entry stays valid for the lifetime of the process.
 var shapedImpls = map[unsafe.Pointer]unsafe.Pointer{}
 
 // shapedImplOf returns the shaped implementation of the generic trampoline at

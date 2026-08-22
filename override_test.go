@@ -269,6 +269,39 @@ func TestExpectNilFail2(t *testing.T) {
 	}
 }
 
+// mockOutOfTurn is a named mock, so the test can call it directly - out of the
+// order the override chain expects.
+func mockOutOfTurn(i int) error {
+	Expectation()
+	return nil
+}
+
+// TestExpectationOutOfTurn covers the guard in Expectation that rejects a mock
+// reporting a call while its own override is not the effective one: only the
+// first non-Always override in the chain, or any Always override, may do so.
+// Here the mock of the second, still queued override is called directly.
+func TestExpectationOutOfTurn(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+		ResetAll(foo)
+		ResetAll(bar)
+		if len(expectations) != 0 {
+			t.Errorf("%d expectation(s) left behind", len(expectations))
+		}
+	}()
+
+	ctx := TestingContext(t)
+	Override(ctx, foo, Once, func(i int) error {
+		Expectation()
+		return nil
+	})
+	Override(ctx, bar, Once, mockOutOfTurn) // queued behind the override for foo
+
+	mockOutOfTurn(1)
+}
+
 func TestInvalidExpectationCall(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {

@@ -180,6 +180,9 @@ func TestIsGenericName(t *testing.T) {
 		"pkg.Func[...].gowrap1":         false, // go statement wrapper
 		"pkg.Type[...].Method-fm":       false, // method value wrapper
 		"pkg.Type[...].Func1":           true,  // exported method, not a closure
+		"pkg.Type[...].funcName":        true,  // method name that merely starts with "func"
+		"pkg.Type[...].gowrap":          true,  // wrapper prefix with no sequence number
+		"pkg.Type[...].deferwrap":       true,
 		"pkg.Type[...].Method.Nested":   false,
 		"pkg.Outer[...].Inner[...].Get": true,
 		"pkg.(*Type[...]).Method":       true,  // pointer receiver

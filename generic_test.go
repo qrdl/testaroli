@@ -271,9 +271,10 @@ func genericClosure[T any](a T) func(T) T {
 }
 
 // TestGenericEnclosedClosure checks that a closure defined inside a generic
-// function is overridden with the regular strategy. The marker in its name must
-// not route it through the shaped-implementation strategy, which would mistake
-// its first argument for a receiver and write a shim into its (very short) body.
+// function can be overridden and restored, even though its runtime name carries
+// the "[...]" marker of the enclosing instantiation. That the marker alone no
+// longer classifies such a name as a patchable generic is covered directly by
+// TestIsGenericName.
 func TestGenericEnclosedClosure(t *testing.T) {
 	fn := genericClosure(1)
 
@@ -351,6 +352,36 @@ func TestGenericShapeSharingConflict(t *testing.T) {
 
 	if len(expectations) != 0 {
 		t.Errorf("%d expectation(s) left behind", len(expectations))
+	}
+}
+
+// TestGenericChainedSameInstantiation overrides the same instantiation twice in
+// a row, the second one created while the first is still in effect. It checks
+// that both intercept the direct call form in turn, and covers the
+// shape-conflict check skipping an override of the very same trampoline - those
+// are already kept apart by the override chain.
+func TestGenericChainedSameInstantiation(t *testing.T) {
+	ctx := TestingContext(t)
+
+	Override(ctx, genericFunc[int], Once, func(a int) *int {
+		Expectation().CheckArgs(a)
+		return nil
+	})(1)
+	Override(ctx, genericFunc[int], Once, func(a int) *int {
+		Expectation().CheckArgs(a)
+		return nil
+	})(2)
+
+	if callDirectInferred(1) != nil {
+		t.Error("first override: expected the direct call to return nil")
+	}
+	if callDirectInferred(2) != nil {
+		t.Error("second override: expected the direct call to be intercepted too")
+	}
+	testError(t, nil, ExpectationsWereMet())
+
+	if r := callDirectInferred(5); r == nil || *r != 5 {
+		t.Error("genericFunc[int] was not restored")
 	}
 }
 
