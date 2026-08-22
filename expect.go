@@ -37,8 +37,13 @@ type Expect struct {
 	orgName     string
 	orgPrologue []byte
 	// generic-function support: shapedAddr/shapedPrologue track the shaped
-	// implementation patched in addition to the trampoline (see overrideGeneric)
+	// implementation patched in addition to the trampoline (see overrideGeneric);
+	// dropSlot is the integer-register slot holding the type dictionary; canShim
+	// is false when the signature cannot be reshaped, so only the trampoline is
+	// patched
 	isGeneric      bool
+	canShim        bool
+	dropSlot       int
 	shapedAddr     unsafe.Pointer
 	shapedPrologue []byte
 }

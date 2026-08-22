@@ -21,6 +21,13 @@ import (
 const jmpInstrLength = 5 // length of local JMP instruction with operand
 const jmpInstrCode = uint8(0xE9)
 
+// Go internal ABI argument-register budget on amd64: integer registers AX, BX,
+// CX, DI, SI, R8, R9, R10, R11 and floating-point registers X0..X14. The generic
+// shim can only reshape arguments that stay within these, once the hidden
+// dictionary has claimed one integer register.
+const intRegBudget = 9
+const floatRegBudget = 15
+
 func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 	funcPrologue := unsafe.Slice((*uint8)(orgPointer), jmpInstrLength)
 	orgPrologue := make([]byte, jmpInstrLength)
@@ -51,27 +58,36 @@ func buildJump(from, to unsafe.Pointer) []byte {
 	return buf
 }
 
+// intArgMoves holds, for each integer argument register slot, the machine code
+// that copies the next slot's register into it: slot i gets reg[i] <- reg[i+1]
+// for the register sequence AX, BX, CX, DI, SI, R8, R9, R10, R11.
+var intArgMoves = [][]byte{
+	{0x48, 0x89, 0xD8}, // MOVQ BX, AX
+	{0x48, 0x89, 0xCB}, // MOVQ CX, BX
+	{0x48, 0x89, 0xF9}, // MOVQ DI, CX
+	{0x48, 0x89, 0xF7}, // MOVQ SI, DI
+	{0x4C, 0x89, 0xC6}, // MOVQ R8, SI
+	{0x4D, 0x89, 0xC8}, // MOVQ R9, R8
+	{0x4D, 0x89, 0xD1}, // MOVQ R10, R9
+	{0x4D, 0x89, 0xDA}, // MOVQ R11, R10
+}
+
 // buildShim returns position-independent machine code that adapts the shaped
 // (dictionary-passing) calling convention to the mock's convention and then
-// tail-calls the mock. Generic implementations receive a hidden dictionary
-// pointer as the first integer-register argument (AX), pushing every real
-// argument one integer register down the sequence AX, BX, CX, DI, SI, R8, R9,
-// R10, R11. The shim shifts them back up and jumps to the mock. Floating-point
-// argument registers are untouched (the dictionary is never passed in one).
-func buildShim(mockPointer uintptr) []byte {
-	shim := []byte{
-		0x48, 0x89, 0xD8, // MOVQ BX, AX
-		0x48, 0x89, 0xCB, // MOVQ CX, BX
-		0x48, 0x89, 0xF9, // MOVQ DI, CX
-		0x48, 0x89, 0xF7, // MOVQ SI, DI
-		0x4C, 0x89, 0xC6, // MOVQ R8, SI
-		0x4D, 0x89, 0xC8, // MOVQ R9, R8
-		0x4D, 0x89, 0xD1, // MOVQ R10, R9
-		0x4D, 0x89, 0xDA, // MOVQ R11, R10
-		0x49, 0xBC, 0, 0, 0, 0, 0, 0, 0, 0, // MOVABS $mock, R12
-		0x41, 0xFF, 0xE4, // JMP R12
+// tail-calls the mock. A generic implementation receives a hidden dictionary
+// pointer in one integer-register argument slot - slot 0 (AX) for a plain
+// function, or the slot right after the receiver for a method on a generic type
+// (dropSlot) - which pushes every following argument one integer register down.
+// The shim shifts those back up and jumps to the mock. Floating-point argument
+// registers are untouched (the dictionary is never passed in one).
+func buildShim(mockPointer uintptr, dropSlot int) []byte {
+	var shim []byte
+	for i := dropSlot; i < len(intArgMoves); i++ {
+		shim = append(shim, intArgMoves[i]...)
 	}
-	binary.NativeEndian.PutUint64(shim[26:], uint64(mockPointer))
+	shim = append(shim, 0x49, 0xBC, 0, 0, 0, 0, 0, 0, 0, 0) // MOVABS $mock, R12
+	binary.NativeEndian.PutUint64(shim[len(shim)-8:], uint64(mockPointer))
+	shim = append(shim, 0x41, 0xFF, 0xE4) // JMP R12
 	return shim
 }
 

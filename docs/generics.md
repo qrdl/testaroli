@@ -12,7 +12,8 @@ func pointer[T any](a T) *T {
 }
 
 func TestFoo(t *testing.T) {
-	Override(TestingContext(t), pointer[int], Once, func(a int) *int {
+	// count 3: the override stays effective for all three calls below
+	Override(TestingContext(t), pointer[int], 3, func(a int) *int {
 		Expectation().CheckArgs(a)
 		return nil
 	})(1)
@@ -26,7 +27,9 @@ func TestFoo(t *testing.T) {
 		t.Errorf("Got unexpected result %v", result)
 	}
 
-	testError(t, nil, ExpectationsWereMet())
+	if err := ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
 }
 ```
 
@@ -52,8 +55,8 @@ hence the old "always call through a reference" rule.
 
 ## How Both Forms Are Now Intercepted
 
-When `Override` detects a generic function (its runtime name ends in `[...]`), it
-patches **both** entry points:
+When `Override` detects a generic instantiation (its runtime name contains
+`[...]`), it patches **both** entry points:
 
 1. **The trampoline** is patched to jump straight to the mock, exactly like a
    regular function. This covers reference-form calls.
@@ -66,6 +69,48 @@ patches **both** entry points:
 The shim is written into the body of the trampoline itself — dead code once the
 trampoline entry jumps away — so no extra executable memory is allocated, and
 both patches are restored together when the override is reset.
+
+## Methods on Generic Types
+
+Methods on instantiated generic types work the same way — override the method
+expression and every call form is intercepted:
+
+```go
+type Box[T any] struct{ v T }
+func (b *Box[T]) Set(x T) T { b.v = x; return x }
+
+func TestBox(t *testing.T) {
+	Override(TestingContext(t), (*Box[int]).Set, Once, func(b *Box[int], x int) int {
+		Expectation().CheckArgs(b, x)
+		return -x
+	})(&Box[int]{}, 3)
+
+	// b.Set(3) — a direct method call — is intercepted
+}
+```
+
+As with any method override, the receiver becomes the mock's first argument.
+Internally the dictionary is passed right after the receiver rather than first,
+so `Override` locates it from the receiver's register footprint.
+
+## Limitation: Register-Passed Arguments Only
+
+The shim that intercepts direct calls works by shifting the shaped
+implementation's integer argument registers to remove the hidden dictionary. It
+can only do this when every argument — *plus* the dictionary, which claims one
+extra integer register — is passed in registers. Go's calling convention has a
+fixed budget of argument registers (on amd64: 9 integer and 15 floating-point;
+on arm64: 16 and 16). A signature is not shim-able when:
+
+- its integer arguments plus the dictionary exceed the integer-register budget
+  (for example nine or more integer-word arguments on amd64), or
+- an argument is of a type Go passes on the stack (such as a multi-element array,
+  including a method receiver of that kind, `type Ring[T any] [8]T`).
+
+For such a signature only the **reference form** is intercepted; a direct call
+runs the original function. Nothing is silently miscompiled — the arguments are
+never corrupted — but if you rely on intercepting a direct call, its expectation
+will simply go unmet. Call the generic through a stored reference in that case.
 
 ## Limitation: Shape Sharing
 

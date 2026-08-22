@@ -33,6 +33,13 @@ import (
 const instrLength = 4
 const jmpInstrCode = uint8(0x14) // B instruction
 
+// Go internal ABI argument-register budget on arm64: integer registers R0..R15
+// and floating-point registers F0..F15. The generic shim can only reshape
+// arguments that stay within these, once the hidden dictionary has claimed one
+// integer register.
+const intRegBudget = 16
+const floatRegBudget = 16
+
 func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 	funcPrologue := unsafe.Slice((*uint8)(orgPointer), instrLength)
 	orgPrologue := make([]byte, instrLength)
@@ -57,7 +64,10 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 func reset(ptr unsafe.Pointer, buf []byte) {
 	replacePrologue(ptr, buf) // OS-specific
 
-	C.flush_cache(C.uint64_t(uintptr(ptr)), C.size_t(instrLength))
+	// Flush the whole restored range, not just the first instruction: a generic
+	// override embeds a shim in the trampoline body, so restoring it rewrites
+	// many instructions and every one of them must be evicted from the I-cache.
+	C.flush_cache(C.uint64_t(uintptr(ptr)), C.size_t(len(buf)))
 }
 
 // buildJump returns the bytes of an unconditional B instruction that, placed at
@@ -72,15 +82,17 @@ func buildJump(from, to unsafe.Pointer) []byte {
 
 // buildShim returns position-independent machine code that adapts the shaped
 // (dictionary-passing) calling convention to the mock's convention and then
-// tail-calls the mock. Generic implementations receive a hidden dictionary
-// pointer in R0, pushing every real argument one integer register down the
-// sequence R0..R15. The shim shifts them back up and branches to the mock.
+// tail-calls the mock. A generic implementation receives a hidden dictionary
+// pointer in one integer-register argument slot - slot 0 (R0) for a plain
+// function, or the slot right after the receiver for a method on a generic type
+// (dropSlot) - which pushes every following argument one integer register down
+// the sequence R0..R15. The shim shifts those back up and branches to the mock.
 // Floating-point argument registers are untouched.
-func buildShim(mockPointer uintptr) []byte {
+func buildShim(mockPointer uintptr, dropSlot int) []byte {
 	buf := make([]byte, 0, 15*instrLength+2*instrLength+8)
 	var b [4]byte
-	// MOV X{i}, X{i+1}  (encoded as ORR X{i}, XZR, X{i+1}) for i in 0..14
-	for i := uint32(0); i < 15; i++ {
+	// MOV X{i}, X{i+1}  (encoded as ORR X{i}, XZR, X{i+1}) for i in dropSlot..14
+	for i := uint32(dropSlot); i < 15; i++ {
 		instr := uint32(0xAA0003E0) | ((i + 1) << 16) | i
 		binary.NativeEndian.PutUint32(b[:], instr)
 		buf = append(buf, b[:]...)

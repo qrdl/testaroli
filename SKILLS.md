@@ -294,7 +294,8 @@ func TestContextData(t *testing.T) {
 func TestGeneric(t *testing.T) {
     // Generic: func Max[T constraints.Ordered](a, b T) T
 
-    Override(TestingContext(t), Max[int], Once,
+    // count 3: the override stays effective for all three calls below
+    Override(TestingContext(t), Max[int], 3,
         func(a, b int) int {
             Expectation().CheckArgs(a, b)
             return 999  // Mocked result

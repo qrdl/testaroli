@@ -147,6 +147,24 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 		}
 	}
 
+	// For a generic function/method, work out how to intercept direct calls to
+	// its shaped implementation via the shim (see overrideGeneric): the register
+	// slot holding the hidden type dictionary, and whether the shim can reshape
+	// the signature at all. A method places the dictionary right after its
+	// receiver; a signature whose arguments plus the dictionary do not all fit in
+	// registers cannot be reshaped, so only the trampoline gets patched and direct
+	// calls fall through to the original (reference-form calls still work).
+	isGeneric := isGenericName(orgName)
+	dropSlot := 0
+	canShim := false
+	if isGeneric {
+		slot, ok := dictDropSlot(orgType, isGenericMethodName(orgName))
+		if ok && shimFitsSignature(orgType) {
+			dropSlot = slot
+			canShim = true
+		}
+	}
+
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
 	expectedCall := Expect{
 		ctx:       ctx,
@@ -154,7 +172,9 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 		mockAddr:  mockPointer,
 		orgAddr:   orgPointer,
 		orgName:   orgName,
-		isGeneric: isGenericName(orgName),
+		isGeneric: isGeneric,
+		canShim:   canShim,
+		dropSlot:  dropSlot,
 	}
 
 	v := reflect.MakeFunc(

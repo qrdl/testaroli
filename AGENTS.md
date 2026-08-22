@@ -387,7 +387,8 @@ Override an instantiated generic function; every call form is intercepted:
 ```go
 // Generic function: func Max[T constraints.Ordered](a, b T) T
 func TestGenericOverride(t *testing.T) {
-    Override(TestingContext(t), Max[int], Once,
+    // count 3: the override stays effective for all three calls below
+    Override(TestingContext(t), Max[int], 3,
         func(a, b int) int {
             Expectation().CheckArgs(a, b)
             return 999  // Mocked result
@@ -697,7 +698,8 @@ Override(ctx, fn, Once, func(arg int) int {
 Override an instantiated generic function; every call form works:
 ```go
 // Generic: func Max[T constraints.Ordered](a, b T) T
-Override(ctx, Max[int], Once, func(a, b int) int {
+// count 3: the override stays effective for all three calls below
+Override(ctx, Max[int], 3, func(a, b int) int {
     Expectation().CheckArgs(a, b)
     return 999
 })(10, 20)
