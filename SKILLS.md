@@ -293,26 +293,23 @@ func TestContextData(t *testing.T) {
 ```go
 func TestGeneric(t *testing.T) {
     // Generic: func Max[T constraints.Ordered](a, b T) T
-    
-    // CRITICAL: Create function reference first
-    maxInt := Max[int]  // Reference to instantiated generic
-    
-    Override(TestingContext(t), maxInt, Once,
+
+    Override(TestingContext(t), Max[int], Once,
         func(a, b int) int {
             Expectation().CheckArgs(a, b)
             return 999  // Mocked result
         })(10, 20)
 
-    // MUST call via reference (not directly)
-    result := maxInt(10, 20)  // ✅ Works
-    // Max[int](10, 20)        // ❌ Would bypass override
+    // Any call form uses the override:
+    result := Max(10, 20)      // ✅ type inference
+    _ = Max[int](10, 20)       // ✅ explicit instantiation
+    maxInt := Max[int]; _ = maxInt(10, 20) // ✅ reference
 }
 ```
 
-**Generic limitations:**
-- Cannot override generic functions directly
-- Must create reference to type-instantiated function
-- Call through reference, not direct generic call
+**Generic notes:**
+- Pass the instantiated function (`Max[int]`) to `Override`; every call form is intercepted
+- Caveat: Go shape sharing means an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type)
 - See [docs/generics.md](docs/generics.md) for details
 
 ### Pattern 14: Interface Implementation Override
@@ -446,8 +443,8 @@ func TestManual(t *testing.T) {
 **Issue:** "arguments don't match"
 - **Solution:** Check `CheckArgs()` receives same types and values as actual call
 
-**Issue:** "cannot override generic function"
-- **Solution:** Generic functions only work when called via reference (see docs/generics.md)
+**Issue:** generic function override has no effect
+- **Solution:** Ensure `-gcflags="all=-N -l"` is set so direct calls aren't inlined; any call form then works (see docs/generics.md)
 
 **Issue:** "panic: permission denied (memory protection)"
 - **Solution:** Platform-specific issue - check OS/architecture support
@@ -486,7 +483,7 @@ Override(TestingContext(t), targetFunc, Once, mockFunc)(expectedArgs...)
 - Always call `Expectation()` inside mock
 - Methods: receiver becomes first argument
 - Variadic: pass as slice in `CheckArgs`, individual args in trailing call
-- Generics: create reference first (`fnRef := GenericFunc[int]`)
+- Generics: pass the instantiation (`GenericFunc[int]`); any call form works
 - Interfaces: override concrete type, not interface
 - Context: use `context.WithValue` to pass data to mocks
 - End test with `ExpectationsWereMet(t)`
@@ -494,7 +491,7 @@ Override(TestingContext(t), targetFunc, Once, mockFunc)(expectedArgs...)
 ## Related Documentation
 
 - [Main Documentation](docs/README.md) - Comprehensive usage guide
-- [Generics Limitations](docs/generics.md) - Generic function constraints
+- [Generic Functions](docs/generics.md) - Overriding generics and the shape-sharing caveat
 - [Interface Handling](docs/interfaces.md) - Working with interfaces
 - [AGENTS.md](AGENTS.md) - Project architecture and design
 

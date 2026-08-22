@@ -14,6 +14,7 @@ package testaroli
 
 import (
 	"encoding/binary"
+	"runtime"
 	"unsafe"
 )
 
@@ -39,3 +40,70 @@ func override(orgPointer, mockPointer unsafe.Pointer) []byte {
 func reset(ptr unsafe.Pointer, buf []byte) {
 	replacePrologue(ptr, buf) // OS-specific
 }
+
+// buildJump returns the bytes of an unconditional relative JMP instruction that,
+// placed at address <from>, transfers control to <to>.
+func buildJump(from, to unsafe.Pointer) []byte {
+	buf := make([]byte, jmpInstrLength)
+	buf[0] = jmpInstrCode
+	jumpLocation := uintptr(to) - (uintptr(from) + jmpInstrLength)
+	binary.NativeEndian.PutUint32(buf[1:], uint32(jumpLocation))
+	return buf
+}
+
+// buildShim returns position-independent machine code that adapts the shaped
+// (dictionary-passing) calling convention to the mock's convention and then
+// tail-calls the mock. Generic implementations receive a hidden dictionary
+// pointer as the first integer-register argument (AX), pushing every real
+// argument one integer register down the sequence AX, BX, CX, DI, SI, R8, R9,
+// R10, R11. The shim shifts them back up and jumps to the mock. Floating-point
+// argument registers are untouched (the dictionary is never passed in one).
+func buildShim(mockPointer uintptr) []byte {
+	shim := []byte{
+		0x48, 0x89, 0xD8, // MOVQ BX, AX
+		0x48, 0x89, 0xCB, // MOVQ CX, BX
+		0x48, 0x89, 0xF9, // MOVQ DI, CX
+		0x48, 0x89, 0xF7, // MOVQ SI, DI
+		0x4C, 0x89, 0xC6, // MOVQ R8, SI
+		0x4D, 0x89, 0xC8, // MOVQ R9, R8
+		0x4D, 0x89, 0xD1, // MOVQ R10, R9
+		0x4D, 0x89, 0xDA, // MOVQ R11, R10
+		0x49, 0xBC, 0, 0, 0, 0, 0, 0, 0, 0, // MOVABS $mock, R12
+		0x41, 0xFF, 0xE4, // JMP R12
+	}
+	binary.NativeEndian.PutUint64(shim[26:], uint64(mockPointer))
+	return shim
+}
+
+// findShapedImpl locates the shaped implementation of a generic function given
+// the address of its instantiation trampoline. The trampoline sets up the type
+// dictionary and then makes a direct CALL to the shaped implementation, which
+// carries the same "[...]" runtime name. Returns nil if it cannot be found.
+func findShapedImpl(tramp unsafe.Pointer) unsafe.Pointer {
+	f := runtime.FuncForPC(uintptr(tramp))
+	if f == nil {
+		return nil
+	}
+	name := f.Name()
+	const scan = 256
+	code := unsafe.Slice((*byte)(tramp), scan)
+	for i := 0; i+jmpInstrLength <= scan; i++ {
+		if code[i] != 0xE8 { // CALL rel32
+			continue
+		}
+		rel := int32(binary.NativeEndian.Uint32(code[i+1:]))
+		target := uintptr(tramp) + uintptr(i) + jmpInstrLength + uintptr(int64(rel))
+		if target == uintptr(tramp) {
+			continue
+		}
+		tf := runtime.FuncForPC(target)
+		if tf != nil && tf.Entry() == target && tf.Name() == name {
+			return unsafe.Pointer(target)
+		}
+	}
+	return nil
+}
+
+// flushICache is a no-op on amd64, which keeps the instruction cache coherent
+// with data writes automatically.
+func flushICache(unsafe.Pointer, int) {}

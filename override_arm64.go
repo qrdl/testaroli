@@ -26,6 +26,7 @@ import "C"
 
 import (
 	"encoding/binary"
+	"runtime"
 	"unsafe"
 )
 
@@ -57,4 +58,78 @@ func reset(ptr unsafe.Pointer, buf []byte) {
 	replacePrologue(ptr, buf) // OS-specific
 
 	C.flush_cache(C.uint64_t(uintptr(ptr)), C.size_t(instrLength))
+}
+
+// buildJump returns the bytes of an unconditional B instruction that, placed at
+// address <from>, transfers control to <to>.
+func buildJump(from, to unsafe.Pointer) []byte {
+	buf := make([]byte, instrLength)
+	jumpLocation := (uintptr(to) - uintptr(from)) / uintptr(instrLength)
+	instruction := uint32(jumpLocation&0x03FFFFFF) | (uint32(jmpInstrCode) << 24)
+	binary.NativeEndian.PutUint32(buf, instruction)
+	return buf
+}
+
+// buildShim returns position-independent machine code that adapts the shaped
+// (dictionary-passing) calling convention to the mock's convention and then
+// tail-calls the mock. Generic implementations receive a hidden dictionary
+// pointer in R0, pushing every real argument one integer register down the
+// sequence R0..R15. The shim shifts them back up and branches to the mock.
+// Floating-point argument registers are untouched.
+func buildShim(mockPointer uintptr) []byte {
+	buf := make([]byte, 0, 15*instrLength+2*instrLength+8)
+	var b [4]byte
+	// MOV X{i}, X{i+1}  (encoded as ORR X{i}, XZR, X{i+1}) for i in 0..14
+	for i := uint32(0); i < 15; i++ {
+		instr := uint32(0xAA0003E0) | ((i + 1) << 16) | i
+		binary.NativeEndian.PutUint32(b[:], instr)
+		buf = append(buf, b[:]...)
+	}
+	binary.NativeEndian.PutUint32(b[:], 0x58000050) // LDR X16, pc+8 (the literal below)
+	buf = append(buf, b[:]...)
+	binary.NativeEndian.PutUint32(b[:], 0xD61F0200) // BR X16
+	buf = append(buf, b[:]...)
+	var lit [8]byte
+	binary.NativeEndian.PutUint64(lit[:], uint64(mockPointer)) // 8-byte mock address literal
+	buf = append(buf, lit[:]...)
+	return buf
+}
+
+// findShapedImpl locates the shaped implementation of a generic function given
+// the address of its instantiation trampoline. The trampoline sets up the type
+// dictionary and then makes a direct BL to the shaped implementation, which
+// carries the same "[...]" runtime name. Returns nil if it cannot be found.
+func findShapedImpl(tramp unsafe.Pointer) unsafe.Pointer {
+	f := runtime.FuncForPC(uintptr(tramp))
+	if f == nil {
+		return nil
+	}
+	name := f.Name()
+	const scan = 256
+	code := unsafe.Slice((*byte)(tramp), scan)
+	for i := 0; i+instrLength <= scan; i += instrLength {
+		instr := binary.NativeEndian.Uint32(code[i:])
+		if instr>>26 != 0x25 { // BL: top 6 bits are 0b100101
+			continue
+		}
+		imm := int64(instr & 0x03FFFFFF)
+		if imm&0x02000000 != 0 { // sign-extend 26-bit immediate
+			imm -= 0x04000000
+		}
+		target := uintptr(int64(uintptr(tramp)) + int64(i) + imm*int64(instrLength))
+		if target == uintptr(tramp) {
+			continue
+		}
+		tf := runtime.FuncForPC(target)
+		if tf != nil && tf.Entry() == target && tf.Name() == name {
+			return unsafe.Pointer(target)
+		}
+	}
+	return nil
+}
+
+// flushICache invalidates the instruction cache for the modified range, required
+// on ARM64 after writing executable code.
+func flushICache(ptr unsafe.Pointer, size int) {
+	C.flush_cache(C.uint64_t(uintptr(ptr)), C.size_t(size))
 }

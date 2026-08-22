@@ -36,6 +36,11 @@ type Expect struct {
 	args        []reflect.Value
 	orgName     string
 	orgPrologue []byte
+	// generic-function support: shapedAddr/shapedPrologue track the shaped
+	// implementation patched in addition to the trampoline (see overrideGeneric)
+	isGeneric      bool
+	shapedAddr     unsafe.Pointer
+	shapedPrologue []byte
 }
 
 /*
@@ -73,7 +78,7 @@ func Expectation() *Expect {
 
 	expect.actCount++
 	if expect.actCount == expect.expCount && !(expect.expCount == Unlimited || expect.expCount == Always) {
-		reset(expect.orgAddr, expect.orgPrologue)
+		resetExpect(expect)
 		expectations = slices.Delete(expectations, order, order+1) // remove from expected chain
 		overrideNextInChain()
 	}
@@ -84,9 +89,7 @@ func Expectation() *Expect {
 func overrideNextInChain() {
 	next := numLeadingAlways()
 	if next < len(expectations) {
-		expectations[next].orgPrologue = override( // call arch-specific function
-			expectations[next].orgAddr,
-			expectations[next].mockAddr)
+		applyOverride(expectations[next])
 	}
 }
 

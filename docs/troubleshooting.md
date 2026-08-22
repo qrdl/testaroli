@@ -41,13 +41,17 @@ Common issues when using testaroli and their solutions.
   Override(ctx, square.Area, ...)
   ```
 
-## Panic: "Override() cannot be called for generic function"
+## Overriding a generic function has no effect
 
-**Symptom:** Tests panic with message about generic functions.
+**Symptom:** A generic function you overrode still runs its original code.
 
-**Cause:** Generic functions cannot be overridden directly due to Go's compile-time type instantiation.
+**Cause:** Optimizations or inlining are enabled, so a direct call expression
+(`fn[int](x)` / `fn(x)`) was inlined and there is no call left to patch.
 
-**Solution:** Use a function reference instead - see [Generic Functions Guide](generics.md) for detailed workarounds.
+**Solution:** Run tests with `-gcflags="all=-N -l"`. Generic functions can then
+be overridden and called in any form (reference, explicit instantiation, or type
+inference). See the [Generic Functions Guide](generics.md), which also covers the
+shape-sharing caveat.
 
 ## Panic: "Override() cannot be called for interface method"
 

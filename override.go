@@ -149,11 +149,12 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 
 	mockPointer := reflect.ValueOf(mock).UnsafePointer()
 	expectedCall := Expect{
-		ctx:      ctx,
-		expCount: count,
-		mockAddr: mockPointer,
-		orgAddr:  orgPointer,
-		orgName:  orgName,
+		ctx:       ctx,
+		expCount:  count,
+		mockAddr:  mockPointer,
+		orgAddr:   orgPointer,
+		orgName:   orgName,
+		isGeneric: isGenericName(orgName),
 	}
 
 	v := reflect.MakeFunc(
@@ -173,7 +174,7 @@ func Override[T any](ctx context.Context, org T, count int, mock T) T {
 
 	// all previous overrides are Always or this one it Always
 	if count == Always || len(expectations) == numLeadingAlways() {
-		expectedCall.orgPrologue = override(orgPointer, mockPointer) // call arch-specific function
+		applyOverride(&expectedCall)
 	}
 	expectations = append(expectations, &expectedCall)
 
@@ -201,7 +202,7 @@ func ExpectationsWereMet() error {
 
 	var err error
 	for i, e := range expectations {
-		reset(e.orgAddr, e.orgPrologue)
+		resetExpect(e)
 		// Always or last expectation is Unlimited - not an error
 		if (e.expCount == Unlimited && i == len(expectations)-1) || e.expCount == Always {
 			break
@@ -259,7 +260,7 @@ func Reset(org any) {
 		if e.orgAddr == orgPointer {
 			expectations = slices.Delete(expectations, i, i+1)
 			if len(e.orgPrologue) > 0 {
-				reset(e.orgAddr, e.orgPrologue)
+				resetExpect(e)
 				if e.expCount != Always {
 					overrideNextInChain()
 				}
@@ -288,7 +289,7 @@ func ResetAll(org any) {
 		if e.orgAddr == orgPointer {
 			expectations = slices.Delete(expectations, i, i+1)
 			if len(e.orgPrologue) > 0 {
-				reset(e.orgAddr, e.orgPrologue)
+				resetExpect(e)
 				if e.expCount != Always {
 					overrideNextInChain()
 				}

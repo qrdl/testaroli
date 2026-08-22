@@ -103,6 +103,24 @@ Demonstrates testing code that uses panic/recover patterns and preventing panics
 - Testing critical failure scenarios safely
 - Making panic-prone code testable without modifying it
 
+### 6. [generics/](generics/) - Generic Function Overriding
+
+Demonstrates overriding generic functions, using a small latency-report scenario that calls generic helpers in different ways.
+
+**Key Concepts:**
+- Pass the instantiated function to `Override`: `Override(ctx, maxOf[int], ...)`
+- Every call form is intercepted - no need to route calls through a reference:
+  - Type inference: `average(samples...)`
+  - Explicit instantiation: `maxOf[int](vals...)`
+  - Stored reference: `fn := deref[int]; fn(p)`
+- Generic functions work in override chains just like regular functions
+- **Caveat:** Go shares one compiled implementation across shape-compatible type arguments (all pointer types, or a named type and its underlying type), so overriding one such instantiation also affects the others - see [docs/generics.md](../docs/generics.md)
+
+**Use Cases:**
+- Mocking generic utility functions (collections, decoders, caches)
+- Testing code that relies on type-parameterized helpers
+- Isolating units without rewriting generic APIs to accept injected functions
+
 ## Testing Best Practices
 
 1. **Always check expectations**: Call `ExpectationsWereMet()` at the end of tests
@@ -115,6 +133,6 @@ Demonstrates testing code that uses panic/recover patterns and preventing panics
 
 1. **Forgetting `-gcflags`**: Tests will fail mysteriously without the flags
 2. **Inline functions**: Cannot override inlined functions
-4. **Generic functions**: Limited support - see [docs/generics.md](../docs/generics.md)
+4. **Generic functions**: Any call form works, but Go shape sharing makes an override affect shape-compatible instantiations - see [generics/](generics/) and [docs/generics.md](../docs/generics.md)
 5. **Scope limitations**: Mocks execute in replaced function's scope, use context to pass data
 6. **Variadic functions**: Inside mock, variadic params are slices; when checking args, pass as slice; when setting expectations, pass as individual args

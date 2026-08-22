@@ -190,9 +190,9 @@ ResetAll(bar)  // Removes both overrides, restores original
 ## Limitations
 
 ### Generics
-- **Limited support** - Generic functions work only when called via reference variable
-- **Must create reference** to type-instantiated function: `fnRef := GenericFunc[int]`
-- **Must call through reference** - Direct calls bypass override
+- **Fully supported** - Override an instantiated generic function (`GenericFunc[int]`); every call form works (reference, explicit instantiation, type inference)
+- **Mechanism** - both the instantiation trampoline and the shaped implementation are patched, so direct call expressions are intercepted too
+- **Caveat: shape sharing** - an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type)
 - See [docs/generics.md](docs/generics.md) and "Generic Function Override" in Usage Patterns for examples
 
 ### Interface Methods
@@ -233,7 +233,7 @@ testaroli/
 │
 ├── Documentation
 │   ├── docs/README.md       # Main documentation
-│   ├── docs/generics.md     # Generic functions limitations
+│   ├── docs/generics.md     # Overriding generic functions
 │   ├── docs/interfaces.md   # Interface handling
 │   └── docs/macOS.md        # macOS-specific notes
 │
@@ -382,30 +382,27 @@ result, err := ProcessWithRecovery(data, 5)  // Should recover from panic
 ```
 
 ### Generic Function Override
-Override generic functions by creating a reference to the type-instantiated function:
+Override an instantiated generic function; every call form is intercepted:
 
 ```go
 // Generic function: func Max[T constraints.Ordered](a, b T) T
 func TestGenericOverride(t *testing.T) {
-    // CRITICAL: Create reference to instantiated generic function
-    maxInt := Max[int]  // Reference variable
-    
-    Override(TestingContext(t), maxInt, Once,
+    Override(TestingContext(t), Max[int], Once,
         func(a, b int) int {
-            Expectation().CheckArgs(10, 20)
+            Expectation().CheckArgs(a, b)
             return 999  // Mocked result
         })(10, 20)
 
-    // MUST call via reference (not directly)
-    result := maxInt(10, 20)  // ✅ Works - calls override
-    // result := Max[int](10, 20)  // ❌ Bypasses override
+    result := Max(10, 20)       // ✅ type inference
+    _ = Max[int](10, 20)        // ✅ explicit instantiation
+    maxInt := Max[int]; _ = maxInt(10, 20) // ✅ reference
 }
 ```
 
 **Key Points:**
-- Cannot override generic functions directly due to Go's compile-time instantiation
-- Must create a reference variable to the type-instantiated function
-- Always call through the reference variable, never directly
+- Pass the instantiated function (`Max[int]`) to `Override`; reference, explicit and inferred calls all use the override
+- Both the instantiation trampoline and the shaped implementation are patched
+- Caveat: Go shape sharing means an override for one instantiation also affects shape-compatible ones (all pointer types; a named type and its underlying type)
 - See [docs/generics.md](docs/generics.md) for detailed explanation
 
 ### Interface Implementation Override
@@ -625,7 +622,7 @@ result := process("invalid-input")  // Takes error path
 ### When NOT to Use
 - Production code (testing only!)
 - With heavily inlined code
-- Generic functions (limited support - needs reference pattern)
+- Generic functions overridden across shape-compatible instantiations (shape sharing affects them together)
 - On unsupported platforms
 - When proper dependency injection is possible
 - Interface methods directly (must use concrete types)
@@ -697,18 +694,19 @@ Override(ctx, fn, Once, func(arg int) int {
 ```
 
 #### 6. Generic Functions
-Cannot override generic functions directly - use reference pattern:
+Override an instantiated generic function; every call form works:
 ```go
 // Generic: func Max[T constraints.Ordered](a, b T) T
-maxInt := Max[int]  // Create reference to instantiated generic
-
-Override(ctx, maxInt, Once, func(a, b int) int {
+Override(ctx, Max[int], Once, func(a, b int) int {
     Expectation().CheckArgs(a, b)
     return 999
 })(10, 20)
 
-result := maxInt(10, 20)  // ✅ Call via reference
-// Max[int](10, 20)        // ❌ Direct call bypasses override
+result := Max(10, 20)   // ✅ type inference
+_ = Max[int](10, 20)    // ✅ explicit instantiation
+maxInt := Max[int]      // ✅ reference
+_ = maxInt(10, 20)
+// Caveat: shape sharing - an override for Max[int] also affects Max[MyInt]
 ```
 
 #### 7. Interface Implementations
@@ -865,7 +863,7 @@ This ensures your mock has access to any required data, even though it cannot se
 6. **Method Receivers:** Always remind about receiver as first argument
 7. **Variadic Functions:** Explain the three-part rule (mock as slice, CheckArgs as slice, call as individual)
 8. **Panic Patterns:** Useful for testing recovery logic or preventing test failures
-9. **Generics:** Always use reference pattern - see "Generic Function Override" in Usage Patterns
+9. **Generics:** Pass the instantiation (`Fn[int]`); any call form works, but watch shape sharing - see "Generic Function Override" in Usage Patterns
 10. **Interfaces:** Always override concrete type - see "Interface Implementation Override" in Usage Patterns
 
 ## Code Generation Guidelines for AI Agents

@@ -144,7 +144,12 @@ Developers can also use SKILLS.md as a quick reference guide with copy-paste pat
 
 ### Generic Functions
 
-Override generic functions by using function references instead of direct calls. The [Generic Functions Guide](generics.md) shows complete patterns and examples for working with generics.
+Generic functions can be overridden and called in any form (reference, explicit
+instantiation, or type inference). The one caveat is Go's shape sharing: an
+override for one instantiation also affects other shape-compatible instantiations
+(e.g. all pointer types, or a named type and its underlying type). The [Generic
+Functions Guide](generics.md) explains how it works and the details of this
+caveat.
 
 ### Interface Methods
 

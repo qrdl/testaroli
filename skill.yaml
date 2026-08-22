@@ -99,7 +99,7 @@ skill:
       use_case: "When mock needs access to outer variables or test configuration"
     
     - name: "Generic Function Override"
-      description: "Override instantiated generic functions via reference"
+      description: "Override instantiated generic functions; any call form works"
       file: "SKILLS.md"
       section: "Pattern 13"
       use_case: "Mock generic utility functions with type parameters"
@@ -115,7 +115,7 @@ skill:
     - "Override methods (instance and pointer receivers)"
     - "Override standard library functions"
     - "Override variadic functions and methods"
-    - "Override generic functions (via reference)"
+    - "Override generic functions (any call form)"
     - "Override concrete implementations of interfaces"
     - "Chain multiple overrides in sequence"
     - "Validate function call arguments"
@@ -138,7 +138,7 @@ skill:
     go_version: "1.24.0+"
   
   limitations:
-    - "Generic functions have limited support (call via reference only)"
+    - "Generic overrides affect shape-compatible instantiations (Go shape sharing)"
     - "Cannot override inlined functions"
     - "Platform-dependent (OS and architecture specific)"
     - "Testing only - never use in production"
