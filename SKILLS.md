@@ -122,9 +122,9 @@ func TestFileRead(t *testing.T) {
     Override(ctx, (*os.File).Read, Once,
         func(f *os.File, b []byte) (int, error) {
             data := Expectation().Context().Value("mockData").([]byte)
-            copy(b, data)
-            return len(data), nil
-        })()
+            n := copy(b, data) // n may be less than len(data) if b is shorter
+            return n, nil
+        })
 
     // Test code that opens and reads a file...
 }
@@ -397,7 +397,7 @@ func TestCapture(t *testing.T) {
         func(msg string) {
             captured := Expectation().Context().Value("capturedArgs").(*[]string)
             *captured = append(*captured, msg)
-        })()
+        })
 
     // Test code...
 
