@@ -206,9 +206,12 @@ This pattern allows you to pass any value from the test to the mock safely.
   ```
 - For `Unlimited` overrides, manually reset when done:
   ```go
-  reset := Override(ctx, fn, Unlimited, mock)
-  defer reset()  // Clean up when done
+  Override(ctx, fn, Unlimited, mock)
+  defer ResetAll(fn)  // Clean up when done
   ```
+  (`Override()`'s return value is only for setting expected args via the
+  trailing call - calling it does not reset anything; use [Reset]/[ResetAll]
+  with the original function instead)
 - Avoid using `Always` unless necessary (it stays outside the chain)
 
 ---

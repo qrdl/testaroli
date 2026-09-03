@@ -115,13 +115,16 @@ func TestMethodOverride(t *testing.T) {
 ```go
 func TestFileRead(t *testing.T) {
     mockData := []byte("test content")
+    // Mock closures cannot reliably read outer/test-scope variables (see
+    // Pattern 12) - pass mockData through the context instead.
+    ctx := context.WithValue(TestingContext(t), "mockData", mockData)
 
-    Override(TestingContext(t), (*os.File).Read, Once,
+    Override(ctx, (*os.File).Read, Once,
         func(f *os.File, b []byte) (int, error) {
-            Expectation()
-            copy(b, mockData)
-            return len(mockData), nil
-        })()
+            data := Expectation().Context().Value("mockData").([]byte)
+            n := copy(b, data) // n may be less than len(data) if b is shorter
+            return n, nil
+        })
 
     // Test code that opens and reads a file...
 }
@@ -351,12 +354,15 @@ These examples show techniques that can be combined with any pattern above:
 ```go
 func TestStateful(t *testing.T) {
     callCount := 0
+    // Mutating a closed-over variable inside the mock corrupts memory
+    // (see Pattern 12) - store a pointer to it in the context instead.
+    ctx := context.WithValue(TestingContext(t), "callCount", &callCount)
 
-    Override(TestingContext(t), mypackage.Counter, Unlimited,
+    Override(ctx, mypackage.Counter, Unlimited,
         func() int {
-            Expectation()
-            callCount++
-            return callCount
+            count := Expectation().Context().Value("callCount").(*int)
+            *count++
+            return *count
         })()
 
     // Each call returns incrementing value
@@ -383,12 +389,15 @@ func TestConditional(t *testing.T) {
 ```go
 func TestCapture(t *testing.T) {
     var capturedArgs []string
+    // Mutating a closed-over slice inside the mock corrupts memory
+    // (see Pattern 12) - store a pointer to it in the context instead.
+    ctx := context.WithValue(TestingContext(t), "capturedArgs", &capturedArgs)
 
-    Override(TestingContext(t), mypackage.LogMessage, Unlimited,
+    Override(ctx, mypackage.LogMessage, Unlimited,
         func(msg string) {
-            Expectation()
-            capturedArgs = append(capturedArgs, msg)
-        })()
+            captured := Expectation().Context().Value("capturedArgs").(*[]string)
+            *captured = append(*captured, msg)
+        })
 
     // Test code...
 
@@ -417,17 +426,26 @@ func TestWithValidation(t *testing.T) {
 ```
 
 ### Manual Validation
+`Override()` returns a value with the same signature as the mock, used only to
+set expected args via the trailing call (see [Step 4](#step-4-set-up-expectations-optional));
+it has no `WasCalled()` method, and there is no such method anywhere in
+testaroli. To check whether a mock ran without waiting for `ExpectationsWereMet()`,
+track a flag through the context (see Pattern 12):
 ```go
 func TestManual(t *testing.T) {
-    override := Override(TestingContext(t), mypackage.Work, Once,
+    called := false
+    ctx := context.WithValue(TestingContext(t), "called", &called)
+
+    Override(ctx, mypackage.Work, Once,
         func() {
-            Expectation()
+            flag := Expectation().Context().Value("called").(*bool)
+            *flag = true
         })()
 
     mypackage.Work()
 
     // Check if override was called
-    if !override.WasCalled() {
+    if !called {
         t.Error("Expected Work() to be called")
     }
 }
@@ -445,6 +463,10 @@ func TestManual(t *testing.T) {
 
 **Issue:** "arguments don't match"
 - **Solution:** Check `CheckArgs()` receives same types and values as actual call
+
+**Issue:** mock reads a wrong/zero value, or panics with a nil pointer dereference, when using a variable from the enclosing test function
+- **Cause:** The mock runs in the scope of the replaced function, not the test's lexical scope - closing over outer variables to read or mutate them from inside the mock is unreliable
+- **Solution:** Pass the data through the context instead, as `*T` when the mock needs to mutate it (see Pattern 12, Stateful Mock, Capturing/Collecting Arguments)
 
 **Issue:** "cannot override generic function"
 - **Solution:** Generic functions only work when called via reference (see docs/generics.md)
